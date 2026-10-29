@@ -26,93 +26,151 @@ export const DocumentsChecklistBox: React.FC<DocumentsBoxProps> = ({
   });
 
   // 2. Tution Fees (Sec 80C)
-  if (deductions.sec80C_TuitionFee > 0) {
+  if (deductions.sec80C_TuitionFee && deductions.sec80C_TuitionFee > 0) {
     documents.push({
       title: 'बच्चों की स्कूल / कॉलेज ट्यूशन फीस रसीद (Tuition Fee Receipt)',
-      detail: `अधिकतम 2 बच्चों की केवल वास्तविक शिक्षण शुल्क (Tuition Fee) रसीद जिसमें स्कूल का नाम व रजिस्ट्रेशन नंबर अंकित हो। (दावा की गई राशि: ₹${deductions.sec80C_TuitionFee.toLocaleString('en-IN')})`,
-      receiptAmount: `₹${deductions.sec80C_TuitionFee.toLocaleString('en-IN')}`,
-      section: '80C',
+      detail: `अधिकतम 2 बच्चों की केवल वास्तविक शिक्षण शुल्क (Tuition Fee) रसीद जिसमें स्कूल/कॉलेज का नाम व अधिकृत रसीद संख्या अंकित हो।`,
+      receiptAmount: `दावा की गई राशि: ₹${deductions.sec80C_TuitionFee.toLocaleString('en-IN')}`,
+      section: '80C (बिंदु 14)',
       category: 'tuition'
     });
   }
 
-  // 3. House Rent Exemption (HRA Receipt Sec 10(13A))
-  if (deductions.actualRentPaid12M > 0 || totalHRA12M > 0) {
-    const monthlyRent = deductions.actualRentPaid12M > 0 ? Math.round(deductions.actualRentPaid12M / 12) : Math.round(compResult.minRentReceiptRequired / 12);
+  // 3. House Rent Exemption (HRA Receipt Sec 10(13A)) - Only if rent is actually paid!
+  if (deductions.actualRentPaid12M && deductions.actualRentPaid12M > 0) {
+    const monthlyRent = Math.round(deductions.actualRentPaid12M / 12);
     const panRequired = deductions.actualRentPaid12M > 100000;
 
     documents.push({
-      title: 'मकान किराया रसीद (Rent Agreement / Rent Receipts)',
-      detail: `मकान मालिक द्वारा हस्ताक्षरित 12 माह की किराया रसीदें। पूर्ण HRA छूट पाने हेतु न्यूनतम वार्षिक रसीद: ₹${compResult.minRentReceiptRequired.toLocaleString('en-IN')} (अर्थात लगभग ₹${monthlyRent.toLocaleString('en-IN')}/माह)। ${panRequired ? '⚠️ वार्षिक किराया ₹1 लाख से अधिक होने पर मकान मालिक का PAN नंबर देना अनिवार्य है।' : ''}`,
-      receiptAmount: `₹${(deductions.actualRentPaid12M || compResult.minRentReceiptRequired).toLocaleString('en-IN')}`,
-      section: '10(13A)',
+      title: 'मकान किराया रसीदें एवं अनुबंध (House Rent Receipts & Agreement)',
+      detail: `मकान मालिक द्वारा हस्ताक्षरित किराया रसीदें (मासिक लगभग ₹${monthlyRent.toLocaleString('en-IN')}/माह)। छूट हेतु न्यूनतम आवश्यक वार्षिक किराया: ₹${compResult.minRentReceiptRequired.toLocaleString('en-IN')}। ${panRequired ? '⚠️ वार्षिक किराया ₹1,00,000 से अधिक होने पर मकान मालिक का PAN कार्ड एवं घोषणा पत्र देना अनिवार्य है।' : ''}`,
+      receiptAmount: `चुकाया गया किराया: ₹${deductions.actualRentPaid12M.toLocaleString('en-IN')}`,
+      section: '10(13A) (बिंदु 3)',
       category: 'hra'
     });
   }
 
   // 4. Home Loan Interest & Principal (Sec 24b & 80C)
-  if (deductions.sec24b_HomeLoanInterest > 0 || deductions.sec80C_HomeLoanPrincipal > 0) {
+  if ((deductions.sec24b_HomeLoanInterest && deductions.sec24b_HomeLoanInterest > 0) || 
+      (deductions.sec80C_HomeLoanPrincipal && deductions.sec80C_HomeLoanPrincipal > 0)) {
     documents.push({
-      title: 'बैंक होम लोन अनंतिम/अंतिम ब्याज प्रमाण पत्र (Home Loan Certificate)',
-      detail: `बैंक द्वारा वित्तीय वर्ष ${profile.financialYear} हेतु जारी प्रमाण पत्र जिसमें मूलधन (80C: ₹${deductions.sec80C_HomeLoanPrincipal.toLocaleString('en-IN')}) और ब्याज (24b: ₹${deductions.sec24b_HomeLoanInterest.toLocaleString('en-IN')}) स्पष्ट अलग-अलग दर्शाया गया हो।`,
-      receiptAmount: `ब्याज: ₹${deductions.sec24b_HomeLoanInterest.toLocaleString('en-IN')}`,
-      section: '24(b) & 80C',
+      title: 'बैंक गृह ऋण अनंतिम/अंतिम ब्याज व मूलधन प्रमाण पत्र (Home Loan Certificate)',
+      detail: `बैंक/वित्तीय संस्थान द्वारा वित्तीय वर्ष ${profile.financialYear} का जारी प्रमाण पत्र जिसमें मूलधन (80C: ₹${(deductions.sec80C_HomeLoanPrincipal || 0).toLocaleString('en-IN')}) और ब्याज (24b: ₹${(deductions.sec24b_HomeLoanInterest || 0).toLocaleString('en-IN')}) स्पष्ट रूप से अलग-अलग प्रमाणित हो।`,
+      receiptAmount: `ब्याज: ₹${(deductions.sec24b_HomeLoanInterest || 0).toLocaleString('en-IN')} | मूलधन: ₹${(deductions.sec80C_HomeLoanPrincipal || 0).toLocaleString('en-IN')}`,
+      section: '24(b) व 80C (बिंदु 6, 7)',
       category: 'loan'
     });
   }
 
   // 5. LIC / PLI Premium
-  if (deductions.sec80C_LicPli > 0) {
+  if (deductions.sec80C_LicPli && deductions.sec80C_LicPli > 0) {
     documents.push({
-      title: 'एलआईसी / पीएलआई डाक जीवन बीमा प्रीमियम रसीदें',
-      detail: `वित्तीय वर्ष ${profile.financialYear} में ऑनलाइन अथवा ऑफलाइन जमा प्रीमियम की अंतिम रसीदें।`,
-      receiptAmount: `₹${deductions.sec80C_LicPli.toLocaleString('en-IN')}`,
-      section: '80C',
+      title: 'एलआईसी / पीएलआई डाक जीवन बीमा प्रीमियम रसीदें (LIC / PLI Premium Receipts)',
+      detail: `वित्तीय वर्ष ${profile.financialYear} में जमा किए गए जीवन बीमा प्रीमियम की अधिकृत रसीदें।`,
+      receiptAmount: `जमा प्रीमियम: ₹${deductions.sec80C_LicPli.toLocaleString('en-IN')}`,
+      section: '80C (बिंदु 12, 17)',
       category: 'investment'
     });
   }
 
-  // 6. NPS Additional (80CCD 1B)
-  if (deductions.sec80CCD1B_NpsAdditional > 0) {
+  // 6. PPF / Sukanya Samriddhi (80C)
+  if (deductions.sec80C_PpfSsy && deductions.sec80C_PpfSsy > 0) {
     documents.push({
-      title: 'एनपीएस Tier-1 अतिरिक्त अंशदान प्रमाण पत्र / PRAN स्टेटमेंट',
-      detail: `NPS पोर्टल या बैंक से प्राप्त ₹${deductions.sec80CCD1B_NpsAdditional.toLocaleString('en-IN')} अतिरिक्त जमा का स्टेटमेंट।`,
-      receiptAmount: `₹${deductions.sec80CCD1B_NpsAdditional.toLocaleString('en-IN')}`,
-      section: '80CCD(1B)',
+      title: 'पब्लिक प्रोविडेंट फंड (PPF) / सुकन्या समृद्धि पासबुक की सत्यापित प्रति',
+      detail: `डाकघर या बैंक पासबुक में वर्ष ${profile.financialYear} में जमा प्रविष्टि की हस्ताक्षरित फोटोकॉपी।`,
+      receiptAmount: `जमा राशि: ₹${deductions.sec80C_PpfSsy.toLocaleString('en-IN')}`,
+      section: '80C (बिंदु 13, 15)',
       category: 'investment'
     });
   }
 
-  // 7. Divyang Self (80U)
+  // 7. NSC / ELSS / 5-Yr Tax Saver FD (80C)
+  if (deductions.sec80C_NscElssFd && deductions.sec80C_NscElssFd > 0) {
+    documents.push({
+      title: 'राष्ट्रीय बचत पत्र (NSC) / ELSS म्यूचुअल फंड / 5 वर्षीय टैक्स सेवर FD प्रमाण पत्र',
+      detail: `डाकघर से जारी NSC प्रमाण पत्र या बैंक की टैक्स सेवर एफडी रसीद जिसमें 5 वर्ष का लॉक-इन अंकित हो।`,
+      receiptAmount: `निवेश राशि: ₹${deductions.sec80C_NscElssFd.toLocaleString('en-IN')}`,
+      section: '80C (बिंदु 14, 16)',
+      category: 'investment'
+    });
+  }
+
+  // 8. NPS Additional (80CCD 1B)
+  if (deductions.sec80CCD1B_NpsAdditional && deductions.sec80CCD1B_NpsAdditional > 0) {
+    documents.push({
+      title: 'एनपीएस Tier-1 अतिरिक्त अंशदान प्रमाण पत्र / PRAN स्टेटमेंट (NPS Statement)',
+      detail: `CRA NSDL या संबंधित बैंक से वित्तीय वर्ष ${profile.financialYear} का ₹${deductions.sec80CCD1B_NpsAdditional.toLocaleString('en-IN')} अतिरिक्त जमा का आधिकारिक ट्रांजेक्शन स्टेटमेंट।`,
+      receiptAmount: `अतिरिक्त NPS जमा: ₹${deductions.sec80CCD1B_NpsAdditional.toLocaleString('en-IN')}`,
+      section: '80CCD(1B) (बिंदु 20)',
+      category: 'investment'
+    });
+  }
+
+  // 9. Divyang Self (80U)
   if (profile.isDivyangSelf) {
     documents.push({
-      title: 'दिव्यांगता प्रमाण पत्र (Disability Certificate / Form 10-IA)',
-      detail: `अधिकृत सरकारी मेडिकल बोर्ड द्वारा जारी 40% या अधिक दिव्यांगता प्रमाण पत्र। (छूट: ${profile.divyangSeveritySelf === '80plus' ? '₹1,25,000' : '₹75,000'})`,
-      receiptAmount: profile.divyangSeveritySelf === '80plus' ? '₹1,25,000 फ्लैट' : '₹75,000 फ्लैट',
-      section: '80U',
+      title: 'दिव्यांगता प्रमाण पत्र (Disability Certificate / Form 10-IA / UDID Card)',
+      detail: `अधिकृत सरकारी मेडिकल बोर्ड द्वारा जारी 40% या अधिक दिव्यांगता प्रमाण पत्र या विशिष्ट दिव्यांगता पहचान पत्र (UDID)।`,
+      receiptAmount: profile.divyangSeveritySelf === '80plus' ? 'छूट दावा: ₹1,25,000 (गंभीर 80%+)' : 'छूट दावा: ₹75,000 (सामान्य 40%-79%)',
+      section: '80U (बिंदु 26)',
       category: 'disability'
     });
   }
 
-  // 8. Divyang Dependent (80DD)
+  // 10. Divyang Dependent (80DD)
   if (profile.hasDivyangDependent) {
     documents.push({
-      title: 'आश्रित दिव्यांग परिजन का प्रमाण पत्र (Form 10-IB)',
-      detail: `सरकारी अस्पताल बोर्ड प्रमाण पत्र एवं आश्रित होने का स्व-घोषणा पत्र।`,
-      receiptAmount: profile.divyangSeverityDependent === '80plus' ? '₹1,25,000' : '₹75,000',
-      section: '80DD',
+      title: 'आश्रित दिव्यांग परिजन का प्रमाण पत्र (Form 10-IB एवं मेडिकल सर्टिफिकेट)',
+      detail: `सरकारी अस्पताल बोर्ड प्रमाण पत्र एवं कार्मिक पर पूर्णतः आश्रित होने का स्व-घोषणा पत्र।`,
+      receiptAmount: profile.divyangSeverityDependent === '80plus' ? 'छूट दावा: ₹1,25,000' : 'छूट दावा: ₹75,000',
+      section: '80DD (बिंदु 22)',
       category: 'disability'
     });
   }
 
-  // 9. Mediclaim (80D)
-  if (deductions.sec80D_MediclaimSelf > 0 || deductions.sec80D_MediclaimParents > 0) {
+  // 11. Mediclaim (80D)
+  if ((deductions.sec80D_MediclaimSelf && deductions.sec80D_MediclaimSelf > 0) || 
+      (deductions.sec80D_MediclaimParents && deductions.sec80D_MediclaimParents > 0)) {
+    const totalMed = (deductions.sec80D_MediclaimSelf || 0) + (deductions.sec80D_MediclaimParents || 0);
     documents.push({
-      title: 'मेडिक्लेम स्वास्थ्य बीमा प्रीमियम रसीद (Sec 80D Certificate)',
-      detail: 'बीमा कंपनी द्वारा जारी आयकर 80D टैक्स सर्टिफिकेट (जिसमें नकद भुगतान न होकर चेक/ऑनलाइन भुगतान दर्शाया गया हो)।',
-      receiptAmount: `₹${(deductions.sec80D_MediclaimSelf + deductions.sec80D_MediclaimParents).toLocaleString('en-IN')}`,
-      section: '80D',
+      title: 'मेडिक्लेम स्वास्थ्य बीमा प्रीमियम रसीद (Sec 80D Tax Certificate)',
+      detail: 'बीमा कंपनी द्वारा जारी आयकर 80D टैक्स सर्टिफिकेट (जिसमें नकद भुगतान न होकर चेक/ऑनलाइन बैंकिंग भुगतान दर्शाया गया हो)।',
+      receiptAmount: `प्रीमियम दावा: ₹${totalMed.toLocaleString('en-IN')}`,
+      section: '80D (बिंदु 21)',
       category: 'medical'
+    });
+  }
+
+  // 12. Education Loan (80E)
+  if (deductions.sec80E_EduLoanInterest && deductions.sec80E_EduLoanInterest > 0) {
+    documents.push({
+      title: 'उच्च शिक्षा ऋण ब्याज प्रमाण पत्र (Education Loan Interest Certificate)',
+      detail: `बैंक/वित्तीय संस्थान द्वारा जारी प्रमाण पत्र जिसमें स्वयं, जीवनसाथी अथवा बच्चों की उच्च शिक्षा हेतु वर्ष ${profile.financialYear} में चुकाए गए ब्याज का विवरण हो।`,
+      receiptAmount: `ब्याज दावा: ₹${deductions.sec80E_EduLoanInterest.toLocaleString('en-IN')}`,
+      section: '80E (बिंदु 24)',
+      category: 'education'
+    });
+  }
+
+  // 13. Donations (80G)
+  if (deductions.sec80G_Donations && deductions.sec80G_Donations > 0) {
+    documents.push({
+      title: 'धर्मार्थ दान रसीद एवं फॉर्म 10BE (80G Donation Receipt & Certificate)',
+      detail: `मान्यता प्राप्त ट्रस्ट/कोष द्वारा जारी मूल दान रसीद जिसमें संस्था का 80G पंजीकरण नंबर, पैन एवं फॉर्म 10BE प्रमाण पत्र संलग्न हो।`,
+      receiptAmount: `दान राशि: ₹${deductions.sec80G_Donations.toLocaleString('en-IN')}`,
+      section: '80G (बिंदु 25)',
+      category: 'donation'
+    });
+  }
+
+  // 14. Section 89 Relief on Arrear
+  if (deductions.sec89_ReliefArrears && deductions.sec89_ReliefArrears > 0) {
+    documents.push({
+      title: 'आयकर पोर्टल फॉर्म 10E पावती प्रति (Form 10E Acknowledgement Copy)',
+      detail: `आयकर विभाग के ई-फाइलिंग पोर्टल incometax.gov.in पर ऑनलाइन जमा किए गए फॉर्म 10E का एकनॉलेजमेंट एवं एरियर गणना शीट।`,
+      receiptAmount: `राहत राशि: ₹${deductions.sec89_ReliefArrears.toLocaleString('en-IN')}`,
+      section: 'धारा 89 राहत',
+      category: 'mandatory'
     });
   }
 

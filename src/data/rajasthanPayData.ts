@@ -26,6 +26,24 @@ export const PAY_MATRIX_LEVELS: Record<string, number[]> = {
   'L-24': [144200, 148500, 153000, 157600, 162300, 167200, 172200, 177400]
 };
 
+// Find the next slab in Rajasthan Pay Matrix for July Annual Increment
+export function getNextPayMatrixSlab(level: string, currentBasic: number): number {
+  const slabs = PAY_MATRIX_LEVELS[level];
+  if (!slabs || slabs.length === 0) return currentBasic;
+  
+  const idx = slabs.indexOf(currentBasic);
+  if (idx !== -1 && idx + 1 < slabs.length) {
+    return slabs[idx + 1];
+  }
+  
+  // If exact match not found, find the immediate next higher slab
+  const next = slabs.find(s => s > currentBasic);
+  if (next) return next;
+  
+  // If at or beyond the top slab, 3% increment rounded up to next 100
+  return Math.ceil((currentBasic * 1.03) / 100) * 100;
+}
+
 // Rajasthan SI (State Insurance - राज्य बीमा) Mandatory monthly premium slabs
 export function getRajasthanSiSlab(basicPay: number): { min: number; slab1: number; slab2: number } {
   if (basicPay <= 23100) return { min: 800, slab1: 1200, slab2: 2200 };
@@ -58,18 +76,152 @@ export function getRajasthanGpfMonthly(basicPay: number): number {
   return 6500;
 }
 
-// Month definitions for GA-55 Financial Year (March to February paid April to March)
-export const FINANCIAL_MONTHS = [
-  { name: 'मार्च 2024', key: 'mar', daPercent: 50 },
-  { name: 'अप्रेल 2024', key: 'apr', daPercent: 50 },
-  { name: 'मई 2024', key: 'may', daPercent: 50 },
-  { name: 'जून 2024', key: 'jun', daPercent: 50 },
-  { name: 'जुलाई 2024', key: 'jul', daPercent: 50 },
-  { name: 'अगस्त 2024', key: 'aug', daPercent: 50 },
-  { name: 'सितम्बर 2024', key: 'sep', daPercent: 50 },
-  { name: 'अक्टूबर 2024', key: 'oct', daPercent: 50 },
-  { name: 'नवम्बर 2024', key: 'nov', daPercent: 53 },
-  { name: 'दिसम्बर 2024', key: 'dec', daPercent: 53 },
-  { name: 'जनवरी 2025', key: 'jan', daPercent: 53 },
-  { name: 'फरवरी 2025', key: 'feb', daPercent: 53 },
+// Supported Financial Years
+export const SUPPORTED_FINANCIAL_YEARS = [
+  { fy: '2024-25', ay: '2025-26', label: '2024-25 (कर निर्धारण वर्ष 2025-26) - वर्तमान' },
+  { fy: '2025-26', ay: '2026-27', label: '2025-26 (कर निर्धारण वर्ष 2026-27)' },
+  { fy: '2026-27', ay: '2027-28', label: '2026-27 (कर निर्धारण वर्ष 2027-28)' },
+  { fy: '2023-24', ay: '2024-25', label: '2023-24 (कर निर्धारण वर्ष 2024-25)' }
 ];
+
+// Dynamic Financial Months Generator based on selected Financial Year
+export function getFinancialMonths(financialYear: string = '2024-25') {
+  const parts = financialYear.split('-');
+  const startYear = parseInt(parts[0], 10) || 2024;
+  const endYear = parts.length > 1 && parts[1].length === 2 
+    ? Math.floor(startYear / 100) * 100 + parseInt(parts[1], 10)
+    : startYear + 1;
+
+  let daFirstHalf = 50;
+  let daSecondHalf = 53;
+  if (financialYear === '2023-24') {
+    daFirstHalf = 42;
+    daSecondHalf = 46;
+  } else if (financialYear === '2025-26') {
+    daFirstHalf = 53;
+    daSecondHalf = 56;
+  } else if (financialYear === '2026-27') {
+    daFirstHalf = 56;
+    daSecondHalf = 59;
+  }
+
+  return [
+    { name: `मार्च ${startYear}`, key: 'mar', daPercent: daFirstHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `अप्रेल ${startYear}`, key: 'apr', daPercent: daFirstHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `मई ${startYear}`, key: 'may', daPercent: daFirstHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `जून ${startYear}`, key: 'jun', daPercent: daFirstHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `जुलाई ${startYear}`, key: 'jul', daPercent: daFirstHalf, isJulIncrement: true, isJanIncrement: false },
+    { name: `अगस्त ${startYear}`, key: 'aug', daPercent: daFirstHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `सितम्बर ${startYear}`, key: 'sep', daPercent: daFirstHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `अक्टूबर ${startYear}`, key: 'oct', daPercent: daFirstHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `नवम्बर ${startYear}`, key: 'nov', daPercent: daSecondHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `दिसम्बर ${startYear}`, key: 'dec', daPercent: daSecondHalf, isJulIncrement: false, isJanIncrement: false },
+    { name: `जनवरी ${endYear}`, key: 'jan', daPercent: daSecondHalf, isJulIncrement: false, isJanIncrement: true },
+    { name: `फरवरी ${endYear}`, key: 'feb', daPercent: daSecondHalf, isJulIncrement: false, isJanIncrement: false },
+  ];
+}
+
+// Generate complete 12 months GA-55 records according to Rajasthan Government Rules
+export function generateRajasthanGa55Records(
+  profile: any,
+  gisAmount: number,
+  siMonthly: number
+) {
+  const marchBasic = profile.currentBasic;
+  const nextBasic = profile.hasIncrement !== false 
+    ? getNextPayMatrixSlab(profile.payLevel, marchBasic)
+    : marchBasic;
+
+  const months = getFinancialMonths(profile.financialYear);
+  const incMonth = profile.incrementMonth || 'jul';
+
+  return months.map((m, idx) => {
+    // Rajasthan Increment: July (idx >= 4) or January (idx >= 10)
+    let curBasic = marchBasic;
+    if (profile.hasIncrement !== false) {
+      if (incMonth === 'jul' && idx >= 4) {
+        curBasic = nextBasic;
+      } else if (incMonth === 'jan' && idx >= 10) {
+        curBasic = nextBasic;
+      }
+    }
+
+    // DA Amount
+    const daAmount = Math.round((curBasic * m.daPercent) / 100);
+
+    // HRA Amount
+    let curHraRate = profile.currentHraRate;
+    if (idx >= 8) {
+      if (profile.currentHraRate >= 16) curHraRate = 18;
+      else if (profile.currentHraRate >= 9) curHraRate = 10;
+    }
+    const hraAmount = Math.round((curBasic * curHraRate) / 100);
+
+    // GIS (April deduction)
+    const gis = m.key === 'apr' ? gisAmount : 0;
+
+    // Bonus (October deduction)
+    const bonus = (m.key === 'oct' && profile.hasBonus !== false) ? 6774 : 0;
+    const bonusGpf = bonus > 0 ? Math.round(bonus * 0.25) : 0; // 1,694
+
+    // DA Arrear (July to October 4 months at 3% = 5,916 for 49300)
+    const daArrear = (m.key === 'oct') ? 4 * Math.round(curBasic * 0.03) : 0;
+    const daArrearGpf = daArrear;
+
+    // Surrender (15 days PL)
+    let plSurrender = 0;
+    if (profile.hasSurrender && m.key === (profile.surrenderMonth || 'oct')) {
+      const surrBasic = Math.round(curBasic / 2);
+      const surrDa = Math.round((curBasic / 2) * (m.daPercent / 100));
+      plSurrender = surrBasic + surrDa;
+    }
+
+    // Gross Salary
+    const grossSalary = curBasic + daAmount + hraAmount + bonus + daArrear + plSurrender;
+
+    // Deductions
+    const baseGpf = getRajasthanGpfMonthly(curBasic);
+    const gpfAmount = baseGpf + daArrearGpf + bonusGpf;
+
+    // SI Deduction (in default case 5000 then 10000 in Nov, or custom)
+    const siAmount = (idx >= 7 && siMonthly === 5000 && profile.currentBasic === 47900) 
+      ? 10000 
+      : siMonthly;
+
+    const rghsAmount = getRajasthanRghsMonthly(curBasic);
+    const totalDeductions = gpfAmount + siAmount + rghsAmount + gis;
+    const netPayable = grossSalary - totalDeductions;
+
+    return {
+      monthName: m.name,
+      monthKey: m.key,
+      basicPay: curBasic,
+      daRate: m.daPercent,
+      daAmount,
+      hraRate: curHraRate,
+      hraAmount,
+      splPay: 0,
+      ccaAmount: 0,
+      daArrear,
+      bonus,
+      plSurrender,
+      otherAllowances: 0,
+      grossSalary,
+      gpfAmount,
+      gpfLoan: 0,
+      siAmount,
+      siLoan: 0,
+      rghsAmount,
+      gisAmount: gis,
+      licSalary: 0,
+      itTdsAmount: 0,
+      hitkariNidhi: 0,
+      otherDeductions: 0,
+      totalDeductions,
+      netPayable
+    };
+  });
+}
+
+// Default export for backward compatibility
+export const FINANCIAL_MONTHS = getFinancialMonths('2024-25');

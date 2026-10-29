@@ -38,16 +38,26 @@ export interface EmployeeProfile {
   pranNumber: string;
   siNumber: string;
   ddoName: string;
+  ddoDesignation?: string;
   officeTan: string;
   bankAccount: string;
   mobileNo: string;
   payLevel: string;
-  currentBasic: number;
-  financialYear: '2024-25' | '2025-26';
-  assessmentYear: '2025-26' | '2026-27';
-  cityCategory: 'Y' | 'Z'; // Y = 16% (Jaipur etc), Z = 8% / 10% (Other)
-  currentHraRate: number; // e.g. 0.08, 0.10, 0.16
+  currentBasic: number; // March basic pay
+  financialYear: string; // e.g. '2024-25', '2025-26', '2026-27', '2023-24'
+  assessmentYear: string; // e.g. '2025-26', '2026-27', '2027-28', '2024-25'
+  cityCategory: 'Y' | 'Z'; // Y = 16%/18% (Jaipur etc), Z = 9%/10% (Other)
+  currentHraRate: number; // e.g. 0.09, 0.10, 0.16, 0.18
   isSeniorCitizen: boolean;
+  // Increment settings (Rajasthan 7th CPC)
+  hasIncrement: boolean; // default true
+  incrementMonth: 'jul' | 'jan' | 'none'; // default 'jul' (1st July)
+  // Bonus & Surrender PL
+  hasBonus: boolean; // default true (Ad-hoc bonus ₹6,774)
+  hasSurrender: boolean; // default false
+  surrenderMonth: string; // default 'oct'
+  surrenderDays: number; // default 15
+  surrenderAmount?: number;
   // Disability
   isDivyangSelf: boolean;
   divyangSeveritySelf: '40to79' | '80plus'; // 80U
@@ -276,7 +286,7 @@ export function computeTaxComparison(
   );
 
   // --- NEW REGIME ---
-  const new_standardDeduction = 75000;
+  const new_standardDeduction = profile.financialYear === '2023-24' ? 50000 : 75000;
   const new_taxableIncome = Math.max(0, grossTotalIncome - new_standardDeduction);
   const newCalc = calculateNewRegimeTax(new_taxableIncome);
 

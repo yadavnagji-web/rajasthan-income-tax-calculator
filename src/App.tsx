@@ -10,7 +10,13 @@ import {
   DEFAULT_EXCEL_DEDUCTIONS, 
   DEFAULT_EXCEL_RECORDS 
 } from './data/defaultExcelData';
-import { getRajasthanGpfMonthly, getRajasthanSiSlab, getRajasthanRghsMonthly, FINANCIAL_MONTHS } from './data/rajasthanPayData';
+import { 
+  getRajasthanGpfMonthly, 
+  getRajasthanSiSlab, 
+  getRajasthanRghsMonthly, 
+  generateRajasthanGa55Records,
+  SUPPORTED_FINANCIAL_YEARS 
+} from './data/rajasthanPayData';
 import { MasterDataView } from './components/MasterDataView';
 import { OtherDeductionSheetView } from './components/OtherDeductionSheetView';
 import { Ga55LedgerView } from './components/Ga55LedgerView';
@@ -35,56 +41,9 @@ export function App() {
   const [gisAmount, setGisAmount] = useState<number>(700);
   const [siMonthly, setSiMonthly] = useState<number>(5000);
 
-  // Re-generate records when master data is applied
+  // Re-generate records when master data is applied (Rajasthan 7th CPC standards)
   const handleApplyMasterData = () => {
-    const basic = profile.currentBasic;
-    const defaultRghs = getRajasthanRghsMonthly(basic);
-    const defaultGpf = 2850;
-    const hraRate = profile.currentHraRate;
-
-    const newRecords: MonthlyPayRecord[] = FINANCIAL_MONTHS.map((m, idx) => {
-      const curBasic = idx >= 4 ? (profile.payLevel === 'L-11' ? 49300 : basic) : basic;
-      const daAmount = Math.round((curBasic * m.daPercent) / 100);
-      const curHraRate = idx >= 8 ? (profile.currentHraRate >= 16 ? 18 : 10) : hraRate;
-      const hraAmount = Math.round((curBasic * curHraRate) / 100);
-      const gis = m.key === 'apr' ? gisAmount : 0;
-      const bonus = m.key === 'oct' ? 6774 : 0;
-      const daArrear = m.key === 'oct' ? 5916 : 0;
-      const gross = curBasic + daAmount + hraAmount + bonus + daArrear;
-      const gpfTotal = defaultGpf + (m.key === 'oct' ? 5916 + 1694 : 0);
-      const siTotal = idx >= 7 ? 10000 : siMonthly;
-      const totalDed = gpfTotal + siTotal + defaultRghs + gis;
-
-      return {
-        monthName: m.name,
-        monthKey: m.key,
-        basicPay: curBasic,
-        daRate: m.daPercent,
-        daAmount,
-        hraRate: curHraRate,
-        hraAmount,
-        splPay: 0,
-        ccaAmount: 0,
-        daArrear,
-        bonus,
-        plSurrender: 0,
-        otherAllowances: 0,
-        grossSalary: gross,
-        gpfAmount: gpfTotal,
-        gpfLoan: 0,
-        siAmount: siTotal,
-        siLoan: 0,
-        rghsAmount: defaultRghs,
-        gisAmount: gis,
-        licSalary: 0,
-        itTdsAmount: 0,
-        hitkariNidhi: 0,
-        otherDeductions: 0,
-        totalDeductions: totalDed,
-        netPayable: gross - totalDed
-      };
-    });
-
+    const newRecords = generateRajasthanGa55Records(profile, gisAmount, siMonthly);
     setRecords(newRecords);
   };
 
@@ -113,6 +72,27 @@ export function App() {
     setGisAmount(700);
     setSiMonthly(5000);
   };
+
+  // Live active documents counter for Checklist
+  const activeDocsCount = useMemo(() => {
+    let count = 1; // GA-55 statement always
+    if (deductionsOld.sec80C_TuitionFee && deductionsOld.sec80C_TuitionFee > 0) count++;
+    if (deductionsOld.actualRentPaid12M && deductionsOld.actualRentPaid12M > 0) count++;
+    if ((deductionsOld.sec24b_HomeLoanInterest && deductionsOld.sec24b_HomeLoanInterest > 0) || 
+        (deductionsOld.sec80C_HomeLoanPrincipal && deductionsOld.sec80C_HomeLoanPrincipal > 0)) count++;
+    if (deductionsOld.sec80C_LicPli && deductionsOld.sec80C_LicPli > 0) count++;
+    if (deductionsOld.sec80C_PpfSsy && deductionsOld.sec80C_PpfSsy > 0) count++;
+    if (deductionsOld.sec80C_NscElssFd && deductionsOld.sec80C_NscElssFd > 0) count++;
+    if (deductionsOld.sec80CCD1B_NpsAdditional && deductionsOld.sec80CCD1B_NpsAdditional > 0) count++;
+    if (profile.isDivyangSelf) count++;
+    if (profile.hasDivyangDependent) count++;
+    if ((deductionsOld.sec80D_MediclaimSelf && deductionsOld.sec80D_MediclaimSelf > 0) || 
+        (deductionsOld.sec80D_MediclaimParents && deductionsOld.sec80D_MediclaimParents > 0)) count++;
+    if (deductionsOld.sec80E_EduLoanInterest && deductionsOld.sec80E_EduLoanInterest > 0) count++;
+    if (deductionsOld.sec80G_Donations && deductionsOld.sec80G_Donations > 0) count++;
+    if (deductionsOld.sec89_ReliefArrears && deductionsOld.sec89_ReliefArrears > 0) count++;
+    return count;
+  }, [deductionsOld, profile]);
 
   // Annual Totals from records
   const totalBasic12M = useMemo(() => records.reduce((s, r) => s + (r.basicPay || 0), 0), [records]);
@@ -173,8 +153,29 @@ export function App() {
             </div>
           </div>
 
-          {/* Quick Header Buttons */}
+          {/* Quick Header Buttons & Financial Year Selector */}
           <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+              <span className="text-[11px] text-slate-300 font-medium">FY:</span>
+              <select
+                value={profile.financialYear}
+                onChange={(e) => {
+                  const fy = e.target.value;
+                  const sYear = parseInt(fy.split('-')[0], 10) || 2024;
+                  const aYear = sYear + 1;
+                  const ay = `${aYear}-${String(aYear + 1).slice(-2)}`;
+                  const updatedProfile = { ...profile, financialYear: fy, assessmentYear: ay };
+                  setProfile(updatedProfile);
+                  setRecords(generateRajasthanGa55Records(updatedProfile, gisAmount, siMonthly));
+                }}
+                className="bg-slate-900 text-amber-300 text-xs font-bold rounded px-2 py-0.5 border border-slate-600 focus:outline-none"
+              >
+                {SUPPORTED_FINANCIAL_YEARS.map(y => (
+                  <option key={y.fy} value={y.fy}>{y.fy}</option>
+                ))}
+              </select>
+            </div>
+
             <button
               onClick={handleShareWhatsApp}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm"
@@ -259,7 +260,10 @@ export function App() {
               }`}
             >
               <CheckSquare className="w-4 h-4" />
-              <span>5. आवश्यक रसीदें चेकलिस्ट (Live)</span>
+              <span>5. आवश्यक रसीदें चेकलिस्ट</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${activeTab === 'checklist' ? 'bg-white text-teal-800' : 'bg-teal-500/30 text-teal-300'}`}>
+                {activeDocsCount}
+              </span>
             </button>
 
             {/* Rules Directory */}
