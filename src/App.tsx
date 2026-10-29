@@ -10,23 +10,83 @@ import {
   DEFAULT_EXCEL_DEDUCTIONS, 
   DEFAULT_EXCEL_RECORDS 
 } from './data/defaultExcelData';
-import { CalculatorView } from './components/CalculatorView';
+import { getRajasthanGpfMonthly, getRajasthanSiSlab, getRajasthanRghsMonthly, FINANCIAL_MONTHS } from './data/rajasthanPayData';
+import { MasterDataView } from './components/MasterDataView';
+import { OtherDeductionSheetView } from './components/OtherDeductionSheetView';
 import { Ga55LedgerView } from './components/Ga55LedgerView';
 import { DdoTaxStatementView } from './components/DdoTaxStatementView';
 import { TaxRulesView } from './components/TaxRulesView';
-import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { DocumentsChecklistBox } from './components/DocumentsChecklistBox';
+import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, ShieldCheck, Database, ListPlus, CheckSquare } from 'lucide-react';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'calculator' | 'ga55' | 'ddoStatement' | 'rules'>('calculator');
+  const [activeTab, setActiveTab] = useState<'master' | 'otherDeduction' | 'ga55' | 'ddoStatement' | 'checklist' | 'rules'>('master');
 
-  // Load exact default Excel Master Profile
+  // Master Profile
   const [profile, setProfile] = useState<EmployeeProfile>(DEFAULT_EXCEL_PROFILE);
 
-  // Load exact default Excel Deductions
+  // Other Deductions Sheet
   const [deductionsOld, setDeductionsOld] = useState<TaxDeductionsOld>(DEFAULT_EXCEL_DEDUCTIONS);
 
-  // Load exact default Excel 12-month records + Arrear + Bonus
+  // Monthly Records for GA-55
   const [records, setRecords] = useState<MonthlyPayRecord[]>(DEFAULT_EXCEL_RECORDS);
+
+  // Master Sheet Specific Variables
+  const [gisAmount, setGisAmount] = useState<number>(700);
+  const [siMonthly, setSiMonthly] = useState<number>(5000);
+
+  // Re-generate records when master data is applied
+  const handleApplyMasterData = () => {
+    const basic = profile.currentBasic;
+    const defaultRghs = getRajasthanRghsMonthly(basic);
+    const defaultGpf = 2850;
+    const hraRate = profile.currentHraRate;
+
+    const newRecords: MonthlyPayRecord[] = FINANCIAL_MONTHS.map((m, idx) => {
+      const curBasic = idx >= 4 ? (profile.payLevel === 'L-11' ? 49300 : basic) : basic;
+      const daAmount = Math.round((curBasic * m.daPercent) / 100);
+      const curHraRate = idx >= 8 ? (profile.currentHraRate >= 16 ? 18 : 10) : hraRate;
+      const hraAmount = Math.round((curBasic * curHraRate) / 100);
+      const gis = m.key === 'apr' ? gisAmount : 0;
+      const bonus = m.key === 'oct' ? 6774 : 0;
+      const daArrear = m.key === 'oct' ? 5916 : 0;
+      const gross = curBasic + daAmount + hraAmount + bonus + daArrear;
+      const gpfTotal = defaultGpf + (m.key === 'oct' ? 5916 + 1694 : 0);
+      const siTotal = idx >= 7 ? 10000 : siMonthly;
+      const totalDed = gpfTotal + siTotal + defaultRghs + gis;
+
+      return {
+        monthName: m.name,
+        monthKey: m.key,
+        basicPay: curBasic,
+        daRate: m.daPercent,
+        daAmount,
+        hraRate: curHraRate,
+        hraAmount,
+        splPay: 0,
+        ccaAmount: 0,
+        daArrear,
+        bonus,
+        plSurrender: 0,
+        otherAllowances: 0,
+        grossSalary: gross,
+        gpfAmount: gpfTotal,
+        gpfLoan: 0,
+        siAmount: siTotal,
+        siLoan: 0,
+        rghsAmount: defaultRghs,
+        gisAmount: gis,
+        licSalary: 0,
+        itTdsAmount: 0,
+        hitkariNidhi: 0,
+        otherDeductions: 0,
+        totalDeductions: totalDed,
+        netPayable: gross - totalDed
+      };
+    });
+
+    setRecords(newRecords);
+  };
 
   // Handler for manual cell edits in GA-55
   const handleUpdateRecord = (index: number, field: keyof MonthlyPayRecord, value: number) => {
@@ -50,6 +110,8 @@ export function App() {
     setRecords(DEFAULT_EXCEL_RECORDS);
     setProfile(DEFAULT_EXCEL_PROFILE);
     setDeductionsOld(DEFAULT_EXCEL_DEDUCTIONS);
+    setGisAmount(700);
+    setSiMonthly(5000);
   };
 
   // Annual Totals from records
@@ -83,7 +145,7 @@ export function App() {
   };
 
   const handleShareWhatsApp = () => {
-    const text = `📊 *राजस्थान कार्मिक इनकम टैक्स कैलकुलेटर 2024-25 (New vs Old Regime)*\nसकल आय: ₹${compResult.grossTotalIncome.toLocaleString('en-IN')}\n✨ New Regime Tax: ₹${compResult.new_totalTaxPayable.toLocaleString('en-IN')}\n📜 Old Regime Tax: ₹${compResult.old_totalTaxPayable.toLocaleString('en-IN')}\n💡 अनुशंसा: ${compResult.savingSuggestion}\n\n👉 अभी अपना टैक्स जांचें: ${window.location.href}`;
+    const text = `📊 *राजस्थान कार्मिक इनकम टैक्स कैलकुलेटर (Master Excel Format)*\nसकल आय: ₹${compResult.grossTotalIncome.toLocaleString('en-IN')}\n📜 Old Tax: ₹${compResult.old_totalTaxPayable.toLocaleString('en-IN')}\n✨ New Tax: ₹${compResult.new_totalTaxPayable.toLocaleString('en-IN')}\n💡 बचत: Prefer Old Regime (बचत ₹${(compResult.new_totalTaxPayable - compResult.old_totalTaxPayable).toLocaleString('en-IN')})\n\n👉 अभी अपना टैक्स जांचें: ${window.location.href}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -93,7 +155,7 @@ export function App() {
       <header className="bg-slate-900 text-white shadow-md border-b border-slate-800 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-emerald-500 flex items-center justify-center shadow-md">
               <Calculator className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -101,12 +163,12 @@ export function App() {
                 <h1 className="font-extrabold text-sm md:text-base tracking-tight text-white">
                   राजस्थान कार्मिक आयकर कैलकुलेटर (FY 2024-25 / AY 2025-26)
                 </h1>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">
-                  100% PayManager GA-55 एवं एक्सेल प्रमाणित
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold px-2 py-0.5 rounded-full">
+                  मास्टर एक्सेल शीट हुबहू संस्करण
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                1 Page GA-55 • 1 Page DDO आयकर प्रपत्र • आवश्यक दस्तावेज चेकलिस्ट
+                Master Data • GA-55A • Other Deductions • Computation Sheet (Old/New) • Live Checklist
               </p>
             </div>
           </div>
@@ -132,55 +194,85 @@ export function App() {
           </div>
         </div>
 
-        {/* Navigation Tabs Bar */}
-        <div className="bg-slate-800/80 border-t border-slate-700/60 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto flex overflow-x-auto gap-2 py-2 text-xs md:text-sm font-bold scrollbar-none">
+        {/* Navigation Tabs Bar (EXACT SHEET TABS AS IN USER'S EXCEL) */}
+        <div className="bg-slate-800/90 border-t border-slate-700/60 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto flex overflow-x-auto gap-1.5 py-2 text-xs md:text-sm font-bold scrollbar-none">
+            {/* Sheet 1: Master Data */}
             <button
-              onClick={() => setActiveTab('calculator')}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                activeTab === 'calculator'
-                  ? 'bg-emerald-600 text-white shadow-sm'
+              onClick={() => setActiveTab('master')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'master'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              <Calculator className="w-4 h-4" />
-              <span>1. टैक्स गणना व आवश्यक दस्तावेज चेकलिस्ट</span>
+              <Database className="w-4 h-4" />
+              <span>1. Master Sheet (मास्टर डेटा)</span>
             </button>
 
+            {/* Sheet 2: GA55A Sheet */}
             <button
               onClick={() => setActiveTab('ga55')}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'ga55'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>2. GA-55 सैलरी लेजर (A4 Page 1)</span>
+              <span>2. GA 55A Sheet (सैलरी लेजर)</span>
             </button>
 
+            {/* Sheet 3: Other Deduction Sheet */}
+            <button
+              onClick={() => setActiveTab('otherDeduction')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'otherDeduction'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <ListPlus className="w-4 h-4" />
+              <span>3. Other Deduction Sheet (बिंदु 1-36)</span>
+            </button>
+
+            {/* Sheet 4: Computation Sheet (Old/New) */}
             <button
               onClick={() => setActiveTab('ddoStatement')}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'ddoStatement'
-                  ? 'bg-emerald-600 text-white shadow-sm'
+                  ? 'bg-purple-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>3. DDO आयकर आगणन प्रपत्र (A4 Page 2)</span>
+              <span>4. Computation Sheet (Old/New Tax)</span>
             </button>
 
+            {/* Live Checklist */}
+            <button
+              onClick={() => setActiveTab('checklist')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'checklist'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <CheckSquare className="w-4 h-4" />
+              <span>5. आवश्यक रसीदें चेकलिस्ट (Live)</span>
+            </button>
+
+            {/* Rules Directory */}
             <button
               onClick={() => setActiveTab('rules')}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'rules'
-                  ? 'bg-emerald-600 text-white shadow-sm'
+                  ? 'bg-slate-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>4. आयकर धाराएं व नियम निर्देशिका (80U, 80D, 80C)</span>
+              <span>6. नियम निर्देशिका (80U, 80D, 80C)</span>
             </button>
           </div>
         </div>
@@ -188,16 +280,17 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 flex-1">
-        {activeTab === 'calculator' && (
-          <CalculatorView
+        {activeTab === 'master' && (
+          <MasterDataView
             profile={profile}
             setProfile={setProfile}
-            records={records}
-            setRecords={setRecords}
-            deductionsOld={deductionsOld}
-            setDeductionsOld={setDeductionsOld}
-            compResult={compResult}
-            onNavigateTab={setActiveTab}
+            deductions={deductionsOld}
+            setDeductions={setDeductionsOld}
+            gisAmount={gisAmount}
+            setGisAmount={setGisAmount}
+            siMonthly={siMonthly}
+            setSiMonthly={setSiMonthly}
+            onApplyMaster={handleApplyMasterData}
           />
         )}
 
@@ -210,6 +303,16 @@ export function App() {
           />
         )}
 
+        {activeTab === 'otherDeduction' && (
+          <OtherDeductionSheetView
+            profile={profile}
+            deductions={deductionsOld}
+            setDeductions={setDeductionsOld}
+            compResult={compResult}
+            onNavigateTab={setActiveTab}
+          />
+        )}
+
         {activeTab === 'ddoStatement' && (
           <DdoTaxStatementView
             profile={profile}
@@ -217,6 +320,15 @@ export function App() {
             deductionsOld={deductionsOld}
             totalBasic12M={totalBasic12M}
             totalDA12M={totalDA12M}
+            totalHRA12M={totalHRA12M}
+          />
+        )}
+
+        {activeTab === 'checklist' && (
+          <DocumentsChecklistBox
+            profile={profile}
+            deductions={deductionsOld}
+            compResult={compResult}
             totalHRA12M={totalHRA12M}
           />
         )}
