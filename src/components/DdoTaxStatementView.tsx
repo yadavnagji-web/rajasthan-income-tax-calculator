@@ -9,6 +9,7 @@ interface TaxStatementProps {
   totalBasic12M: number;
   totalDA12M: number;
   totalHRA12M: number;
+  initialRegime?: 'OLD' | 'NEW';
 }
 
 export const DdoTaxStatementView: React.FC<TaxStatementProps> = ({
@@ -17,9 +18,14 @@ export const DdoTaxStatementView: React.FC<TaxStatementProps> = ({
   deductionsOld,
   totalBasic12M,
   totalDA12M,
-  totalHRA12M
+  totalHRA12M,
+  initialRegime = 'OLD'
 }) => {
-  const [activeRegimeView, setActiveRegimeView] = useState<'OLD' | 'NEW'>('OLD');
+  const [activeRegimeView, setActiveRegimeView] = useState<'OLD' | 'NEW'>(initialRegime);
+
+  React.useEffect(() => {
+    setActiveRegimeView(initialRegime);
+  }, [initialRegime]);
 
   const handlePrint = () => {
     window.print();

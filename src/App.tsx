@@ -23,10 +23,13 @@ import { Ga55LedgerView } from './components/Ga55LedgerView';
 import { DdoTaxStatementView } from './components/DdoTaxStatementView';
 import { TaxRulesView } from './components/TaxRulesView';
 import { DocumentsChecklistBox } from './components/DocumentsChecklistBox';
-import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, ShieldCheck, Database, ListPlus, CheckSquare } from 'lucide-react';
+import { TaxSavingTipsView } from './components/TaxSavingTipsView';
+import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, ShieldCheck, Database, ListPlus, CheckSquare, Lightbulb, Sparkles } from 'lucide-react';
+
+type TabKey = 'master' | 'otherDeduction' | 'ga55' | 'taxOld' | 'taxNew' | 'tips' | 'checklist' | 'rules';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'master' | 'otherDeduction' | 'ga55' | 'ddoStatement' | 'checklist' | 'rules'>('master');
+  const [activeTab, setActiveTab] = useState<TabKey>('master');
 
   // Master Profile
   const [profile, setProfile] = useState<EmployeeProfile>(DEFAULT_EXCEL_PROFILE);
@@ -195,88 +198,116 @@ export function App() {
           </div>
         </div>
 
-        {/* Navigation Tabs Bar (EXACT SHEET TABS AS IN USER'S EXCEL) */}
+        {/* Navigation Tabs Bar (EXACT SEQUENCE REQUESTED BY USER) */}
         <div className="bg-slate-800/90 border-t border-slate-700/60 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto flex overflow-x-auto gap-1.5 py-2 text-xs md:text-sm font-bold scrollbar-none">
-            {/* Sheet 1: Master Data */}
+            {/* 1. Master Data */}
             <button
               onClick={() => setActiveTab('master')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'master'
                   ? 'bg-amber-500 text-slate-950 shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <Database className="w-4 h-4" />
-              <span>1. Master Sheet (मास्टर डेटा)</span>
+              <span>1. Master Sheet</span>
             </button>
 
-            {/* Sheet 2: GA55A Sheet */}
-            <button
-              onClick={() => setActiveTab('ga55')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                activeTab === 'ga55'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>2. GA 55A Sheet (सैलरी लेजर)</span>
-            </button>
-
-            {/* Sheet 3: Other Deduction Sheet */}
+            {/* 2. Other Deduction Sheet */}
             <button
               onClick={() => setActiveTab('otherDeduction')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'otherDeduction'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <ListPlus className="w-4 h-4" />
-              <span>3. Other Deduction Sheet (बिंदु 1-36)</span>
+              <span>2. Other Deduction</span>
             </button>
 
-            {/* Sheet 4: Computation Sheet (Old/New) */}
+            {/* 3. GA55A Sheet */}
             <button
-              onClick={() => setActiveTab('ddoStatement')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                activeTab === 'ddoStatement'
+              onClick={() => setActiveTab('ga55')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'ga55'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>3. GA 55A Sheet</span>
+            </button>
+
+            {/* 4. Tax (Old Regime) */}
+            <button
+              onClick={() => setActiveTab('taxOld')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'taxOld'
                   ? 'bg-purple-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>4. Computation Sheet (Old/New Tax)</span>
+              <span>4. Tax (Old Regime)</span>
+              <span className="text-[10px] bg-white/20 px-1 rounded font-mono">₹{compResult.old_totalTaxPayable.toLocaleString('en-IN')}</span>
             </button>
 
-            {/* Live Checklist */}
+            {/* 5. Tax (New Regime) */}
             <button
-              onClick={() => setActiveTab('checklist')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                activeTab === 'checklist'
+              onClick={() => setActiveTab('taxNew')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'taxNew'
                   ? 'bg-teal-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
+              <FileText className="w-4 h-4" />
+              <span>5. Tax (New Regime)</span>
+              <span className="text-[10px] bg-white/20 px-1 rounded font-mono">₹{compResult.new_totalTaxPayable.toLocaleString('en-IN')}</span>
+            </button>
+
+            {/* 6. Tax Saving Tips */}
+            <button
+              onClick={() => setActiveTab('tips')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'tips'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-amber-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <Lightbulb className="w-4 h-4 text-amber-400" />
+              <span>6. 💡 टैक्स बचत टिप्स</span>
+            </button>
+
+            {/* 7. Live Checklist */}
+            <button
+              onClick={() => setActiveTab('checklist')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === 'checklist'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
               <CheckSquare className="w-4 h-4" />
-              <span>5. आवश्यक रसीदें चेकलिस्ट</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${activeTab === 'checklist' ? 'bg-white text-teal-800' : 'bg-teal-500/30 text-teal-300'}`}>
+              <span>7. आवश्यक रसीदें</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${activeTab === 'checklist' ? 'bg-white text-indigo-900' : 'bg-indigo-500/30 text-indigo-300'}`}>
                 {activeDocsCount}
               </span>
             </button>
 
-            {/* Rules Directory */}
+            {/* 8. Rules Directory */}
             <button
               onClick={() => setActiveTab('rules')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'rules'
                   ? 'bg-slate-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>6. नियम निर्देशिका (80U, 80D, 80C)</span>
+              <span>8. नियम निर्देशिका</span>
             </button>
           </div>
         </div>
@@ -295,15 +326,7 @@ export function App() {
             siMonthly={siMonthly}
             setSiMonthly={setSiMonthly}
             onApplyMaster={handleApplyMasterData}
-          />
-        )}
-
-        {activeTab === 'ga55' && (
-          <Ga55LedgerView
-            profile={profile}
-            records={records}
-            onUpdateRecord={handleUpdateRecord}
-            onResetRecords={handleResetRecords}
+            compResult={compResult}
           />
         )}
 
@@ -317,7 +340,16 @@ export function App() {
           />
         )}
 
-        {activeTab === 'ddoStatement' && (
+        {activeTab === 'ga55' && (
+          <Ga55LedgerView
+            profile={profile}
+            records={records}
+            onUpdateRecord={handleUpdateRecord}
+            onResetRecords={handleResetRecords}
+          />
+        )}
+
+        {activeTab === 'taxOld' && (
           <DdoTaxStatementView
             profile={profile}
             compResult={compResult}
@@ -325,6 +357,28 @@ export function App() {
             totalBasic12M={totalBasic12M}
             totalDA12M={totalDA12M}
             totalHRA12M={totalHRA12M}
+            initialRegime="OLD"
+          />
+        )}
+
+        {activeTab === 'taxNew' && (
+          <DdoTaxStatementView
+            profile={profile}
+            compResult={compResult}
+            deductionsOld={deductionsOld}
+            totalBasic12M={totalBasic12M}
+            totalDA12M={totalDA12M}
+            totalHRA12M={totalHRA12M}
+            initialRegime="NEW"
+          />
+        )}
+
+        {activeTab === 'tips' && (
+          <TaxSavingTipsView
+            profile={profile}
+            deductions={deductionsOld}
+            compResult={compResult}
+            onNavigateTab={setActiveTab}
           />
         )}
 

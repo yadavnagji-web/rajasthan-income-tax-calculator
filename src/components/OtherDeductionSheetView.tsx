@@ -1,13 +1,14 @@
 import React from 'react';
 import { TaxDeductionsOld, EmployeeProfile, TaxComparisonResult } from '../types/taxTypes';
 import { Percent, Shield, Home, AlertCircle, Save } from 'lucide-react';
+import { LiveTaxSummaryCard } from './LiveTaxSummaryCard';
 
 interface OtherDeductionProps {
   profile: EmployeeProfile;
   deductions: TaxDeductionsOld;
   setDeductions: React.Dispatch<React.SetStateAction<TaxDeductionsOld>>;
   compResult: TaxComparisonResult;
-  onNavigateTab: (tab: 'ga55' | 'ddoStatement') => void;
+  onNavigateTab: (tab: any) => void;
 }
 
 export const OtherDeductionSheetView: React.FC<OtherDeductionProps> = ({
@@ -41,7 +42,7 @@ export const OtherDeductionSheetView: React.FC<OtherDeductionProps> = ({
 
           <div className="flex gap-2">
             <button
-              onClick={() => onNavigateTab('ddoStatement')}
+              onClick={() => onNavigateTab('taxOld')}
               className="px-4 py-2 bg-white text-slate-900 rounded-xl text-xs font-bold shadow hover:bg-slate-100"
             >
               DDO गणना प्रपत्र देखें ➔
@@ -50,9 +51,10 @@ export const OtherDeductionSheetView: React.FC<OtherDeductionProps> = ({
         </div>
       </div>
 
-      {/* 36-Field Form Grid (Exact 36 Points from Excel) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        {/* Left Column (Points 1 to 18) */}
+      {/* 36-Field Form Grid (Exact 36 Points from Excel) + Live Tax Summary Card */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+        <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          {/* Left Column (Points 1 to 18) */}
         <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm space-y-2.5">
           <div className="font-bold text-slate-900 text-sm border-b pb-1 text-blue-900">
             भाग 1: मकान किराया, गृह ऋण, जीवन बीमा व बचत (बिंदु 1 से 18)
@@ -513,6 +515,15 @@ export const OtherDeductionSheetView: React.FC<OtherDeductionProps> = ({
               className="w-full p-2 bg-slate-50 border border-slate-300 rounded font-mono"
             />
           </div>
+        </div>
+        </div>
+
+        {/* Right 1 Column: Live Tax Summary Widget (Captures 1 & 2) */}
+        <div className="xl:col-span-1 xl:sticky xl:top-4">
+          <LiveTaxSummaryCard
+            compResult={compResult}
+            actualRentPaid={deductions.actualRentPaid12M}
+          />
         </div>
       </div>
     </div>

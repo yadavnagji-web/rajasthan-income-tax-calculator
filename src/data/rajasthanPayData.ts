@@ -76,13 +76,26 @@ export function getRajasthanGpfMonthly(basicPay: number): number {
   return 6500;
 }
 
-// Supported Financial Years
-export const SUPPORTED_FINANCIAL_YEARS = [
-  { fy: '2024-25', ay: '2025-26', label: '2024-25 (कर निर्धारण वर्ष 2025-26) - वर्तमान' },
-  { fy: '2025-26', ay: '2026-27', label: '2025-26 (कर निर्धारण वर्ष 2026-27)' },
-  { fy: '2026-27', ay: '2027-28', label: '2026-27 (कर निर्धारण वर्ष 2027-28)' },
-  { fy: '2023-24', ay: '2024-25', label: '2023-24 (कर निर्धारण वर्ष 2024-25)' }
-];
+// Supported Financial Years (Covering Assessment Years from 2024-25 up to 2070-71)
+export const SUPPORTED_FINANCIAL_YEARS: { fy: string; ay: string; label: string }[] = [];
+for (let y = 2024; y <= 2069; y++) {
+  const nextY = y + 1;
+  const ayStart = y + 1;
+  const ayEnd = y + 2;
+  const fyStr = `${y}-${String(nextY).slice(-2)}`;
+  const ayStr = `${ayStart}-${String(ayEnd).slice(-2)}`;
+  const isDefault = y === 2024;
+  SUPPORTED_FINANCIAL_YEARS.push({
+    fy: fyStr,
+    ay: ayStr,
+    label: `${fyStr} (कर निर्धारण वर्ष ${ayStr})${isDefault ? ' - चालू वर्ष' : ''}`
+  });
+}
+SUPPORTED_FINANCIAL_YEARS.push({
+  fy: '2023-24',
+  ay: '2024-25',
+  label: '2023-24 (कर निर्धारण वर्ष 2024-25)'
+});
 
 // Dynamic Financial Months Generator based on selected Financial Year
 export function getFinancialMonths(financialYear: string = '2024-25') {
@@ -121,7 +134,8 @@ export function getFinancialMonths(financialYear: string = '2024-25') {
   ];
 }
 
-// Generate complete 12 months GA-55 records according to Rajasthan Government Rules
+// Generate complete GA-55 records according to Rajasthan Government Rules
+// 12 Financial Months (March to February) + 8 Arrear/Supplementary Rows
 export function generateRajasthanGa55Records(
   profile: any,
   gisAmount: number,
@@ -134,8 +148,14 @@ export function generateRajasthanGa55Records(
 
   const months = getFinancialMonths(profile.financialYear);
   const incMonth = profile.incrementMonth || 'jul';
+  const startYear = parseInt(profile.financialYear.split('-')[0], 10) || 2024;
+  const startShort = String(startYear).slice(-2);
+  const prevYear = startYear - 1;
+  const prevShort = String(prevYear).slice(-2);
+  const prevFy = `${prevYear}-${startShort}`;
 
-  return months.map((m, idx) => {
+  // 1. Regular 12 Monthly Rows (March to February)
+  const monthRecords = months.map((m, idx) => {
     // Rajasthan Increment: July (idx >= 4) or January (idx >= 10)
     let curBasic = marchBasic;
     if (profile.hasIncrement !== false) {
@@ -149,7 +169,7 @@ export function generateRajasthanGa55Records(
     // DA Amount
     const daAmount = Math.round((curBasic * m.daPercent) / 100);
 
-    // HRA Amount
+    // HRA Amount (In FY 2024-25, 9% to 10% or 16% to 18% in second half)
     let curHraRate = profile.currentHraRate;
     if (idx >= 8) {
       if (profile.currentHraRate >= 16) curHraRate = 18;
@@ -157,31 +177,14 @@ export function generateRajasthanGa55Records(
     }
     const hraAmount = Math.round((curBasic * curHraRate) / 100);
 
-    // GIS (April deduction)
+    // GIS (April deduction only)
     const gis = m.key === 'apr' ? gisAmount : 0;
 
-    // Bonus (October deduction)
-    const bonus = (m.key === 'oct' && profile.hasBonus !== false) ? 6774 : 0;
-    const bonusGpf = bonus > 0 ? Math.round(bonus * 0.25) : 0; // 1,694
-
-    // DA Arrear (July to October 4 months at 3% = 5,916 for 49300)
-    const daArrear = (m.key === 'oct') ? 4 * Math.round(curBasic * 0.03) : 0;
-    const daArrearGpf = daArrear;
-
-    // Surrender (15 days PL)
-    let plSurrender = 0;
-    if (profile.hasSurrender && m.key === (profile.surrenderMonth || 'oct')) {
-      const surrBasic = Math.round(curBasic / 2);
-      const surrDa = Math.round((curBasic / 2) * (m.daPercent / 100));
-      plSurrender = surrBasic + surrDa;
-    }
-
-    // Gross Salary
-    const grossSalary = curBasic + daAmount + hraAmount + bonus + daArrear + plSurrender;
+    // Monthly regular gross
+    const grossSalary = curBasic + daAmount + hraAmount;
 
     // Deductions
     const baseGpf = getRajasthanGpfMonthly(curBasic);
-    const gpfAmount = baseGpf + daArrearGpf + bonusGpf;
 
     // SI Deduction (in default case 5000 then 10000 in Nov, or custom)
     const siAmount = (idx >= 7 && siMonthly === 5000 && profile.currentBasic === 47900) 
@@ -189,7 +192,7 @@ export function generateRajasthanGa55Records(
       : siMonthly;
 
     const rghsAmount = getRajasthanRghsMonthly(curBasic);
-    const totalDeductions = gpfAmount + siAmount + rghsAmount + gis;
+    const totalDeductions = baseGpf + siAmount + rghsAmount + gis;
     const netPayable = grossSalary - totalDeductions;
 
     return {
@@ -202,12 +205,12 @@ export function generateRajasthanGa55Records(
       hraAmount,
       splPay: 0,
       ccaAmount: 0,
-      daArrear,
-      bonus,
-      plSurrender,
+      daArrear: 0,
+      bonus: 0,
+      plSurrender: 0,
       otherAllowances: 0,
       grossSalary,
-      gpfAmount,
+      gpfAmount: baseGpf,
       gpfLoan: 0,
       siAmount,
       siLoan: 0,
@@ -221,6 +224,272 @@ export function generateRajasthanGa55Records(
       netPayable
     };
   });
+
+  // 2. The 8 Supplementary Rows as shown in Excel & Capture:
+  // Row 13: DA Arrear 1/XX to 2/XX (Default 0)
+  const daArrearPrev = {
+    monthName: `DA Arrear\n1/${startShort} to 2/${startShort}`,
+    monthKey: 'da_arr_prev',
+    basicPay: 0,
+    daRate: 0,
+    daAmount: 0,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: 0,
+    plSurrender: 0,
+    otherAllowances: 0,
+    grossSalary: 0,
+    gpfAmount: 0,
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: 0,
+    netPayable: 0
+  };
+
+  // Row 14: DA Arrear 7/XX to 10/XX (4 months at 3% = 5,916 for 49,300)
+  const daArrearAmount = 4 * Math.round(nextBasic * 0.03);
+  const daArrearCurr = {
+    monthName: `DA Arrear\n7/${startShort} to 10/${startShort}`,
+    monthKey: 'da_arr_curr',
+    basicPay: 0,
+    daRate: 3,
+    daAmount: daArrearAmount,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: 0,
+    plSurrender: 0,
+    otherAllowances: 0,
+    grossSalary: daArrearAmount,
+    gpfAmount: daArrearAmount, // 100% credited to GPF
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: daArrearAmount,
+    netPayable: 0
+  };
+
+  // Row 15: Surrender {FY}
+  let surrBasic = 0;
+  let surrDa = 0;
+  let surrGross = 0;
+  if (profile.hasSurrender) {
+    surrBasic = Math.round(nextBasic / 2);
+    surrDa = Math.round((nextBasic / 2) * 0.50);
+    surrGross = surrBasic + surrDa;
+  }
+  const surrenderRow = {
+    monthName: `Surrender\n${profile.financialYear}`,
+    monthKey: 'surrender',
+    basicPay: surrBasic,
+    daRate: profile.hasSurrender ? 50 : 0,
+    daAmount: surrDa,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: 0,
+    plSurrender: surrGross,
+    otherAllowances: 0,
+    grossSalary: surrGross,
+    gpfAmount: 0,
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: 0,
+    netPayable: surrGross
+  };
+
+  // Row 16: Bonus {prevFY} (₹6,774: 25% = ₹1,694 to GPF, 75% = ₹5,080 Net)
+  const hasBonus = profile.hasBonus !== false;
+  const bonusTotal = hasBonus ? 6774 : 0;
+  const bonusGpf = hasBonus ? 1694 : 0;
+  const bonusNet = hasBonus ? 5080 : 0;
+  const bonusRow = {
+    monthName: `Bonus\n${prevFy}`,
+    monthKey: 'bonus',
+    basicPay: 0,
+    daRate: 0,
+    daAmount: 0,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: bonusTotal,
+    plSurrender: 0,
+    otherAllowances: 0,
+    grossSalary: bonusTotal,
+    gpfAmount: bonusGpf,
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: bonusGpf,
+    netPayable: bonusNet
+  };
+
+  // Row 17: Salary Arrear
+  const salaryArrearRow = {
+    monthName: 'Salary Arrear',
+    monthKey: 'salary_arrear',
+    basicPay: 0,
+    daRate: 0,
+    daAmount: 0,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: 0,
+    plSurrender: 0,
+    otherAllowances: 0,
+    grossSalary: 0,
+    gpfAmount: 0,
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: 0,
+    netPayable: 0
+  };
+
+  // Row 18: Surrender Arrear
+  const surrenderArrearRow = {
+    monthName: 'Surrender Arrear',
+    monthKey: 'surrender_arrear',
+    basicPay: 0,
+    daRate: 0,
+    daAmount: 0,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: 0,
+    plSurrender: 0,
+    otherAllowances: 0,
+    grossSalary: 0,
+    gpfAmount: 0,
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: 0,
+    netPayable: 0
+  };
+
+  // Row 19: Other 1
+  const other1Row = {
+    monthName: 'Other 1',
+    monthKey: 'other_1',
+    basicPay: 0,
+    daRate: 0,
+    daAmount: 0,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: 0,
+    plSurrender: 0,
+    otherAllowances: 0,
+    grossSalary: 0,
+    gpfAmount: 0,
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: 0,
+    netPayable: 0
+  };
+
+  // Row 20: Other 2
+  const other2Row = {
+    monthName: 'Other 2',
+    monthKey: 'other_2',
+    basicPay: 0,
+    daRate: 0,
+    daAmount: 0,
+    hraRate: 0,
+    hraAmount: 0,
+    splPay: 0,
+    ccaAmount: 0,
+    daArrear: 0,
+    bonus: 0,
+    plSurrender: 0,
+    otherAllowances: 0,
+    grossSalary: 0,
+    gpfAmount: 0,
+    gpfLoan: 0,
+    siAmount: 0,
+    siLoan: 0,
+    rghsAmount: 0,
+    gisAmount: 0,
+    licSalary: 0,
+    itTdsAmount: 0,
+    hitkariNidhi: 0,
+    otherDeductions: 0,
+    totalDeductions: 0,
+    netPayable: 0
+  };
+
+  return [
+    ...monthRecords,
+    daArrearPrev,
+    daArrearCurr,
+    surrenderRow,
+    bonusRow,
+    salaryArrearRow,
+    surrenderArrearRow,
+    other1Row,
+    other2Row
+  ];
 }
 
 // Default export for backward compatibility
