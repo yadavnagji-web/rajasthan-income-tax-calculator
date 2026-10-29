@@ -355,6 +355,7 @@ export function App() {
             records={records}
             onUpdateRecord={handleUpdateRecord}
             onResetRecords={handleResetRecords}
+            compResult={compResult}
           />
         )}
 

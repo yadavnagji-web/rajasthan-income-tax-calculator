@@ -1,20 +1,34 @@
 import React, { useState } from 'react';
-import { MonthlyPayRecord, EmployeeProfile } from '../types/taxTypes';
-import { Printer, Edit3, CheckCircle2, RotateCcw, AlertTriangle, TrendingUp, Zap, HelpCircle } from 'lucide-react';
+import { MonthlyPayRecord, EmployeeProfile, TaxComparisonResult } from '../types/taxTypes';
+import { Printer, Edit3, CheckCircle2, RotateCcw, AlertTriangle, TrendingUp, Zap, HelpCircle, DollarSign, Calculator, Split, ArrowRight, Calendar } from 'lucide-react';
 
 interface Ga55Props {
   profile: EmployeeProfile;
   records: MonthlyPayRecord[];
   onUpdateRecord: (index: number, field: keyof MonthlyPayRecord, value: number | string) => void;
   onResetRecords: () => void;
+  compResult?: TaxComparisonResult;
 }
 
-export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdateRecord, onResetRecords }) => {
+export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdateRecord, onResetRecords, compResult }) => {
   const [isEditable, setIsEditable] = useState(false);
   const [showDaTool, setShowDaTool] = useState(false);
-  const [daHikeRate, setDaHikeRate] = useState<number>(53);
+  const [showTdsPlanner, setShowTdsPlanner] = useState(true);
+  const [targetRegime, setTargetRegime] = useState<'OLD' | 'NEW'>('OLD');
+  const [daHikeRate, setDaHikeRate] = useState<number>(60);
   const [daStartMonthIdx, setDaStartMonthIdx] = useState<number>(4); // 4 = July
   const [daSuccessMsg, setDaSuccessMsg] = useState<string>('');
+  const [tdsSuccessMsg, setTdsSuccessMsg] = useState<string>('');
+  const [selectedRemMonths, setSelectedRemMonths] = useState<number[]>([9, 10, 11]); // 9=Dec, 10=Jan, 11=Feb
+
+  // Current DA rates in records
+  const marchBasic = records[0]?.basicPay || 0;
+  const marchDa = records[0]?.daAmount || 0;
+  const currentMarchDaPercent = marchBasic > 0 ? Math.round((marchDa / marchBasic) * 100) : 50;
+
+  const julyBasic = records[4]?.basicPay || 0;
+  const julyDa = records[4]?.daAmount || 0;
+  const currentJulyDaPercent = julyBasic > 0 ? Math.round((julyDa / julyBasic) * 100) : 53;
 
   // Handle DA Hike Batch Calculation & Update
   const handleApplyDaHike = () => {
@@ -28,6 +42,39 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
     });
     setDaSuccessMsg(`सफलतापूर्वक ${count} माहों में DA ${daHikeRate}% दर से अपडेट कर दिया गया! सकल वेतन स्वतः बढ़ गया है।`);
     setTimeout(() => setDaSuccessMsg(''), 4000);
+  };
+
+  // Tax and TDS Calculations
+  const payableTax = compResult 
+    ? (targetRegime === 'OLD' ? compResult.old_totalTaxPayable : compResult.new_totalTaxPayable)
+    : 0;
+
+  const totalTdsDeducted = records.slice(0, 12).reduce((s, r) => s + (r.itTdsAmount || 0), 0);
+  const dueTax = Math.max(0, payableTax - totalTdsDeducted);
+  const excessTax = Math.max(0, totalTdsDeducted - payableTax);
+
+  // Evenly split remaining due tax into selected future months
+  const handleSplitDueTax = () => {
+    if (selectedRemMonths.length === 0) {
+      alert('कृपया कम से कम 1 शेष माह चुनें जिसमें टैक्स काटना है!');
+      return;
+    }
+    const perMonthShare = Math.round(dueTax / selectedRemMonths.length);
+    selectedRemMonths.forEach((mIdx, i) => {
+      // Last month takes remaining rounding difference
+      const amountToSet = (i === selectedRemMonths.length - 1) 
+        ? (dueTax - perMonthShare * (selectedRemMonths.length - 1))
+        : perMonthShare;
+      onUpdateRecord(mIdx, 'itTdsAmount', amountToSet);
+    });
+    setTdsSuccessMsg(`शेष बकाया टैक्स ₹${dueTax.toLocaleString('en-IN')} को चुने गए ${selectedRemMonths.length} माहों में सफलतापूर्वक भर दिया गया!`);
+    setTimeout(() => setTdsSuccessMsg(''), 4000);
+  };
+
+  const toggleRemMonth = (idx: number) => {
+    setSelectedRemMonths(prev => 
+      prev.includes(idx) ? prev.filter(m => m !== idx) : [...prev, idx].sort((a, b) => a - b)
+    );
   };
 
   // Compute totals
@@ -131,6 +178,31 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
           >
             <TrendingUp className="w-3.5 h-3.5" />
             <span>⚡ DA वृद्धि अपडेटर</span>
+            <span className="bg-white/20 text-xs px-1.5 py-0.2 rounded font-mono font-bold">
+              {currentJulyDaPercent}%
+            </span>
+          </button>
+
+          {/* TDS Planner Toggle Button */}
+          <button
+            onClick={() => setShowTdsPlanner(!showTdsPlanner)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              showTdsPlanner 
+                ? 'bg-purple-700 text-white border-purple-800 shadow-sm' 
+                : 'bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100'
+            }`}
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            <span>💰 मासिक TDS व बकाया टैक्स नियोजन</span>
+            {dueTax > 0 ? (
+              <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">
+                Due: ₹{dueTax.toLocaleString('en-IN')}
+              </span>
+            ) : (
+              <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">
+                ✓ Cleared
+              </span>
+            )}
           </button>
 
           <button
@@ -167,20 +239,25 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
       {/* DA Hike Helper Box */}
       {showDaTool && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 p-4 rounded-xl shadow-sm text-xs space-y-3 no-print animate-in fade-in">
-          <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 pb-2">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-blue-700 font-bold" />
               <h3 className="font-extrabold text-blue-950 text-sm">
                 DA (महंगाई भत्ता) दर वृद्धि व एकमुश्त अपडेट टूल
               </h3>
             </div>
-            <span className="text-[11px] text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded-full">
-              राजस्थान वित्त विभाग मानक
-            </span>
+            
+            {/* Real-time Display of currently applied DA % */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-600">लेजर में वर्तमान लागू DA दर:</span>
+              <span className="px-2.5 py-0.5 bg-blue-600 text-white font-mono font-bold text-xs rounded-full shadow-sm">
+                मार्च-जून: {currentMarchDaPercent}% | जुलाई-फरवरी: {currentJulyDaPercent}%
+              </span>
+            </div>
           </div>
 
           <p className="text-slate-700 leading-relaxed">
-            जब भी राज्य सरकार द्वारा DA बढ़ाया जाता है (उदा. 50% से 53% या 54%), तो नीचे लागू होने वाला माह चुनें और नई DA दर दर्ज करके <strong>"DA अपडेट करें"</strong> पर क्लिक करें। चुने गए माह से फरवरी तक का DA और सकल वेतन तुरंत लाइव अपडेट हो जाएगा।
+            जब भी राज्य सरकार द्वारा DA बढ़ाया जाता है (उदा. 50% से 53% या वर्तमान में <strong>60%</strong>), तो नीचे लागू होने वाला माह चुनें और नई DA दर दर्ज करके <strong>"DA अपडेट करें"</strong> पर क्लिक करें। चुने गए माह से फरवरी तक का DA और सकल वेतन तुरंत लाइव अपडेट हो जाएगा।
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end bg-white p-3 rounded-lg border border-blue-200">
@@ -205,17 +282,17 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
                 value={daHikeRate}
                 onChange={(e) => setDaHikeRate(Number(e.target.value))}
                 className="w-full p-2 bg-blue-50/70 border border-blue-300 rounded font-mono font-bold text-sm text-blue-950"
-                placeholder="उदा: 53"
+                placeholder="उदा: 60"
               />
             </div>
 
-            <div className="flex gap-1.5">
-              {[50, 53, 54, 55].map((rate) => (
+            <div className="flex gap-1">
+              {[50, 53, 55, 60].map((rate) => (
                 <button
                   key={rate}
                   type="button"
                   onClick={() => setDaHikeRate(rate)}
-                  className={`flex-1 py-2 text-xs font-bold rounded border ${daHikeRate === rate ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                  className={`flex-1 py-2 text-xs font-bold rounded border ${daHikeRate === rate ? 'bg-blue-600 text-white border-blue-700 shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                 >
                   {rate}%
                 </button>
@@ -240,6 +317,155 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
               <span>{daSuccessMsg}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* MONTHLY TDS ENTRY & REMAINING TAX PLANNER BOX */}
+      {showTdsPlanner && (
+        <div className="bg-gradient-to-r from-purple-50 via-slate-50 to-indigo-50 border-2 border-purple-300 p-4 rounded-xl shadow-sm text-xs space-y-4 no-print animate-in fade-in">
+          {/* Header & Regime Switcher */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-purple-200 pb-2">
+            <div className="flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-purple-700 font-bold" />
+              <h3 className="font-extrabold text-purple-950 text-sm">
+                मासिक आयकर (TDS) कटौती विवरण एवं बकाया टैक्स नियोजन (Monthly TDS & Balance Tax Planner)
+              </h3>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-700">लक्ष्य व्यवस्था:</span>
+              <div className="inline-flex rounded-lg border border-purple-300 p-0.5 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setTargetRegime('OLD')}
+                  className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${targetRegime === 'OLD' ? 'bg-purple-700 text-white shadow-sm' : 'text-slate-700 hover:text-purple-700'}`}
+                >
+                  Old Regime (₹{compResult?.old_totalTaxPayable.toLocaleString('en-IN') || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetRegime('NEW')}
+                  className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${targetRegime === 'NEW' ? 'bg-teal-700 text-white shadow-sm' : 'text-slate-700 hover:text-teal-700'}`}
+                >
+                  New Regime (₹{compResult?.new_totalTaxPayable.toLocaleString('en-IN') || 0})
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 3 Prominent Calculation Cards: Total Tax - Paid = Due Tax */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm">
+              <span className="text-[11px] font-bold text-slate-500 uppercase block">1. कुल देय आयकर (Total Tax Payable)</span>
+              <div className="text-xl font-black text-slate-900 font-mono mt-0.5">
+                ₹{payableTax.toLocaleString('en-IN')}
+              </div>
+              <span className="text-[10px] text-slate-500">{targetRegime} Regime अनुसार गणना प्रपत्र से</span>
+            </div>
+
+            <div className="bg-white p-3 rounded-xl border border-blue-200 shadow-sm">
+              <span className="text-[11px] font-bold text-blue-700 uppercase block">2. अब तक काटा गया आयकर (TDS Paid)</span>
+              <div className="text-xl font-black text-blue-800 font-mono mt-0.5">
+                ₹{totalTdsDeducted.toLocaleString('en-IN')}
+              </div>
+              <span className="text-[10px] text-blue-600">मार्च से फरवरी कुल मासिक कटौती योग</span>
+            </div>
+
+            <div className={`p-3 rounded-xl border shadow-sm ${dueTax > 0 ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300'}`}>
+              <span className="text-[11px] font-bold uppercase block text-slate-700">
+                3. {dueTax > 0 ? 'शेष बकाया आयकर (Balance Due Tax)' : 'टैक्स स्थिति (Status)'}
+              </span>
+              <div className={`text-xl font-black font-mono mt-0.5 ${dueTax > 0 ? 'text-amber-900' : 'text-emerald-800'}`}>
+                {dueTax > 0 ? `₹${dueTax.toLocaleString('en-IN')}` : (excessTax > 0 ? `+₹${excessTax.toLocaleString('en-IN')} (अतिरिक्त जमा)` : '₹0 (पूर्णतः चुकता)')}
+              </div>
+              <span className={`text-[10px] font-semibold ${dueTax > 0 ? 'text-amber-800' : 'text-emerald-700'}`}>
+                {dueTax > 0 ? 'आगामी शेष माहों में काटा जाना अपेक्षित' : '✓ कोई बकाया टैक्स नहीं'}
+              </span>
+            </div>
+          </div>
+
+          {/* Month-wise TDS Quick Entry Grid (March to Feb) */}
+          <div className="bg-white p-3.5 rounded-xl border border-purple-200 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+              <div>
+                <span className="font-extrabold text-slate-900 text-xs md:text-sm">
+                  माह-वार आयकर (TDS) कटौती प्रविष्टि (Month-Wise TDS Deductions):
+                </span>
+                <p className="text-[11px] text-slate-500">
+                  जिस माह में जितना आयकर काटा गया है, सीधे दर्ज करें। नीचे GA-55 लेजर में यह स्वतः सिंक हो जाएगा।
+                </p>
+              </div>
+
+              {dueTax > 0 && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="font-bold text-slate-700">शेष माह:</span>
+                  {[
+                    { idx: 9, label: 'दिस.' },
+                    { idx: 10, label: 'जन.' },
+                    { idx: 11, label: 'फर.' }
+                  ].map(m => (
+                    <label key={m.idx} className="inline-flex items-center gap-1 cursor-pointer bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded text-[11px] font-bold">
+                      <input
+                        type="checkbox"
+                        checked={selectedRemMonths.includes(m.idx)}
+                        onChange={() => toggleRemMonth(m.idx)}
+                        className="rounded text-purple-600"
+                      />
+                      <span>{m.label}</span>
+                    </label>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleSplitDueTax}
+                    className="ml-1 inline-flex items-center gap-1 px-3 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded text-xs font-bold shadow-sm transition-all active:scale-95"
+                    title="बकाया राशि को चुने गए शेष माहों में बराबर भरें"
+                  >
+                    <Split className="w-3.5 h-3.5" />
+                    <span>बराबर भरें (₹{selectedRemMonths.length > 0 ? Math.round(dueTax / selectedRemMonths.length).toLocaleString('en-IN') : 0}/माह)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 12 Months Input Fields Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 pt-1">
+              {records.slice(0, 12).map((r, mIdx) => {
+                const isSelectedRem = selectedRemMonths.includes(mIdx);
+                return (
+                  <div 
+                    key={mIdx} 
+                    className={`p-2 rounded-lg border text-center transition-all ${
+                      isSelectedRem 
+                        ? 'bg-purple-50/80 border-purple-300 ring-1 ring-purple-200' 
+                        : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1">
+                      <span>{r.monthName.split('\n')[0]}</span>
+                      {isSelectedRem && <span className="text-[9px] text-purple-700 font-extrabold">शेष</span>}
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-1.5 top-1.5 text-slate-400 font-bold text-[10px]">₹</span>
+                      <input
+                        type="number"
+                        value={r.itTdsAmount || ''}
+                        onChange={(e) => onUpdateRecord(mIdx, 'itTdsAmount', Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full text-right pl-4 pr-1.5 py-1 bg-white border border-slate-300 rounded font-mono font-bold text-xs focus:ring-2 focus:ring-purple-500 text-slate-900"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {tdsSuccessMsg && (
+              <div className="p-2 bg-emerald-100 border border-emerald-400 text-emerald-900 rounded font-bold text-xs flex items-center gap-1.5 mt-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>{tdsSuccessMsg}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

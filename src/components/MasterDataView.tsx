@@ -64,9 +64,6 @@ export const MasterDataView: React.FC<MasterDataProps> = ({
             <h2 className="text-xl md:text-2xl font-black">
               मास्टर डेटा प्रविष्टि (सभी पीले सेल भरें)
             </h2>
-            <p className="text-xs md:text-sm font-medium text-amber-950">
-              वित्तीय वर्ष {profile.financialYear} • कर निर्धारण वर्ष {profile.assessmentYear} • राजस्थान वित्त विभाग व पे-मैनेजर मानकानुसार
-            </p>
           </div>
           <button
             onClick={handleSave}
