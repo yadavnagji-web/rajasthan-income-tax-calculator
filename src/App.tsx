@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { 
   EmployeeProfile, 
   MonthlyPayRecord, 
@@ -26,12 +26,31 @@ import { DdoTaxStatementView } from './components/DdoTaxStatementView';
 import { TaxRulesView } from './components/TaxRulesView';
 import { DocumentsChecklistBox } from './components/DocumentsChecklistBox';
 import { TaxSavingTipsView } from './components/TaxSavingTipsView';
-import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, ShieldCheck, Database, ListPlus, CheckSquare, Lightbulb, Sparkles } from 'lucide-react';
+import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, ShieldCheck, Database, ListPlus, CheckSquare, Lightbulb, Sparkles, Maximize2, Minimize2 } from 'lucide-react';
 
 type TabKey = 'master' | 'otherDeduction' | 'ga55' | 'taxOld' | 'taxNew' | 'tips' | 'checklist' | 'rules';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('master');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleBrowserFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
 
   // Master Profile
   const [profile, setProfile] = useState<EmployeeProfile>(DEFAULT_EXCEL_PROFILE);
@@ -195,6 +214,15 @@ export function App() {
                 ))}
               </select>
             </div>
+
+            <button
+              onClick={toggleBrowserFullscreen}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all border border-slate-700 shadow-sm"
+              title={isFullscreen ? "सामान्य स्क्रीन पर लौटें" : "वेबसाइट पर ही फुलस्क्रीन में देखें"}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              <span>{isFullscreen ? 'सामान्य' : 'फुलस्क्रीन'}</span>
+            </button>
 
             <button
               onClick={handleShareWhatsApp}

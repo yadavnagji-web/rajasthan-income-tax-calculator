@@ -25,37 +25,124 @@
     राजस्थान वित्त विभाग के 7th Pay Commission पे-मैट्रिक्स, 1 जुलाई की वार्षिक वेतन वृद्धि, 50% से 53% डीए बढ़ोतरी (एरियर समायोजन) और 80C, 80D, 80CCD(1B), 80U तथा HRA की बारीकियों को ध्यान में रखते हुए <strong>creativeteachers.in</strong> आपके लिए लाया है पूर्णतः 100% प्रामाणिक, ऑनलाइन एवं उपयोग में बेहद आसान <strong>"राजस्थान कार्मिक आयकर कैलकुलेटर"</strong>।
   </p>
 
-  <!-- Interactive Live Tool iFrame Container -->
-  <div style="background: #0f172a; padding: 20px; border-radius: 18px; margin: 35px 0; box-shadow: 0 15px 35px -5px rgba(15, 23, 42, 0.35);">
-    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; color: #ffffff;">
+  <!-- Interactive Live Tool iFrame Container (STAYS 100% ON WEBSITE ON FULLSCREEN) -->
+  <div id="ct-tax-tool-container" style="background: #0f172a; padding: 20px; border-radius: 18px; margin: 35px 0; box-shadow: 0 15px 35px -5px rgba(15, 23, 42, 0.35); transition: all 0.3s ease;">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; color: #ffffff; gap: 10px;">
       <div>
         <span style="background: #f59e0b; color: #000; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">
-          ⚡ लाइव इंटरैक्टिव टूल
+          ⚡ लाइव इंटरैक्टिव टूल (वेबसाइट पर ही उपलब्ध)
         </span>
         <h2 style="font-size: 20px; font-weight: 800; margin: 6px 0 0 0; color: #ffffff;">
           राजस्थान कार्मिक आयकर कैलकुलेटर (Online Web App)
         </h2>
       </div>
-      <div style="margin-top: 10px;">
-        <a href="https://rajasthan-income-tax-calculator.vercel.app" target="_blank" rel="noopener" 
-           style="background: #10b981; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);">
-          <span>⛶</span> फुलस्क्रीन में खोलें (Open Fullscreen)
-        </a>
+
+      <!-- In-Page Fullscreen Button (Stays 100% on Website) -->
+      <div>
+        <button id="ct-fs-btn" type="button" onclick="toggleWebsiteFullscreen()" 
+           style="background: #10b981; color: #ffffff; border: none; cursor: pointer; padding: 10px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35); transition: all 0.2s;">
+          <span id="ct-fs-icon">⛶</span> 
+          <span id="ct-fs-text">यहीं फुलस्क्रीन में खोलें (Fullscreen Mode)</span>
+        </button>
       </div>
     </div>
 
     <!-- Responsive Embed Container -->
-    <div style="position: relative; width: 100%; height: 780px; border-radius: 12px; overflow: hidden; background: #ffffff;">
-      <iframe src="https://rajasthan-income-tax-calculator.vercel.app" 
+    <div id="ct-iframe-box" style="position: relative; width: 100%; height: 780px; border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+      <iframe id="ct-tax-iframe"
+              src="https://rajasthan-income-tax-calculator.vercel.app" 
+              allow="fullscreen"
               style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
               title="राजस्थान कार्मिक आयकर कैलकुलेटर लाइव टूल"
               loading="lazy">
       </iframe>
     </div>
     <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 12px 0 0 0;">
-      💡 नोट: यह कैलकुलेटर पूर्णतः क्लाइंट-साइड है। आपका व्यक्तिगत या वित्तीय डेटा सर्वर पर स्टोर नहीं होता।
+      💡 नोट: यह कैलकुलेटर पूर्णतः क्लाइंट-साइड है। फुलस्क्रीन करने पर भी आप इसी वेबसाइट पर रहते हैं।
     </p>
   </div>
+
+  <!-- In-Page Fullscreen JavaScript: Keeps user on Website -->
+  <script>
+    function toggleWebsiteFullscreen() {
+      var container = document.getElementById('ct-tax-tool-container');
+      var iframeBox = document.getElementById('ct-iframe-box');
+      var btn = document.getElementById('ct-fs-btn');
+      var icon = document.getElementById('ct-fs-icon');
+      var text = document.getElementById('ct-fs-text');
+      
+      var isFullscreen = container.getAttribute('data-fullscreen') === 'true';
+
+      if (!isFullscreen) {
+        container.setAttribute('data-fullscreen', 'true');
+        container.style.position = 'fixed';
+        container.style.top = '0';
+        container.style.left = '0';
+        container.style.width = '100vw';
+        container.style.height = '100vh';
+        container.style.zIndex = '9999999';
+        container.style.margin = '0';
+        container.style.borderRadius = '0';
+        container.style.padding = '12px';
+        container.style.boxSizing = 'border-box';
+        document.body.style.overflow = 'hidden';
+
+        if (iframeBox) iframeBox.style.height = 'calc(100vh - 75px)';
+        if (btn) btn.style.background = '#e11d48';
+        if (icon) icon.innerText = '✕';
+        if (text) text.innerText = 'सामान्य स्क्रीन पर लौटें (Close Fullscreen)';
+
+        if (container.requestFullscreen) {
+          container.requestFullscreen().catch(function(){});
+        }
+      } else {
+        exitWebsiteFullscreen();
+      }
+    }
+
+    function exitWebsiteFullscreen() {
+      var container = document.getElementById('ct-tax-tool-container');
+      var iframeBox = document.getElementById('ct-iframe-box');
+      var btn = document.getElementById('ct-fs-btn');
+      var icon = document.getElementById('ct-fs-icon');
+      var text = document.getElementById('ct-fs-text');
+
+      if (container) {
+        container.setAttribute('data-fullscreen', 'false');
+        container.style.position = 'relative';
+        container.style.top = 'auto';
+        container.style.left = 'auto';
+        container.style.width = 'auto';
+        container.style.height = 'auto';
+        container.style.zIndex = 'auto';
+        container.style.margin = '35px 0';
+        container.style.borderRadius = '18px';
+        container.style.padding = '20px';
+        document.body.style.overflow = 'auto';
+      }
+
+      if (iframeBox) iframeBox.style.height = '780px';
+      if (btn) btn.style.background = '#10b981';
+      if (icon) icon.innerText = '⛶';
+      if (text) text.innerText = 'यहीं फुलस्क्रीन में खोलें (Fullscreen Mode)';
+
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(function(){});
+      }
+    }
+
+    document.addEventListener('fullscreenchange', function() {
+      if (!document.fullscreenElement) {
+        exitWebsiteFullscreen();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        exitWebsiteFullscreen();
+      }
+    });
+  </script>
 
   <!-- Infographic Flow Section -->
   <div style="text-align: center; margin: 35px 0;">
