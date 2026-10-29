@@ -7,18 +7,41 @@
   }
 }
 
+/* Perfect Single A4 Page Print Styling */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm 6mm 8mm;
+  }
+
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
+
   .no-print {
     display: none !important;
   }
-  .print-only {
-    display: block !important;
+
+  .a4-page-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 2mm 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
   }
-  .page-break {
-    page-break-before: always;
+
+  table {
+    font-size: 8.5pt !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    padding: 1.5pt 2.5pt !important;
   }
 }

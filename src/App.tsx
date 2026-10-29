@@ -1,36 +1,38 @@
-import React, { useState, useMemo } from 'react';
-import { 
+import { useState, useMemo } from 'react';
+import type { 
   EmployeeProfile, 
   MonthlyPayRecord, 
-  TaxDeductionsOld, 
-  computeTaxComparison 
+  TaxDeductionsOld 
 } from './types/taxTypes';
+import { computeTaxComparison } from './types/taxTypes';
 import { FINANCIAL_MONTHS, getRajasthanGpfMonthly, getRajasthanSiSlab, getRajasthanRghsMonthly } from './data/rajasthanPayData';
 import { CalculatorView } from './components/CalculatorView';
 import { Ga55LedgerView } from './components/Ga55LedgerView';
 import { DdoTaxStatementView } from './components/DdoTaxStatementView';
 import { TaxRulesView } from './components/TaxRulesView';
-import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, Printer, RotateCcw, ShieldCheck, Heart } from 'lucide-react';
+import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, ShieldCheck } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'calculator' | 'ga55' | 'ddoStatement' | 'rules'>('calculator');
-  const [selectedRegimeForDDO, setSelectedRegimeForDDO] = useState<'NEW' | 'OLD'>('NEW');
 
-  // Employee Profile
+  // Employee Profile initialized with Rajasthan defaults
   const [profile, setProfile] = useState<EmployeeProfile>({
-    empName: '',
-    designation: 'तृतीय श्रेणी अध्यापक (Level 10)',
-    schoolName: 'राजकीय उच्च प्राथमिक विद्यालय',
-    panNumber: '',
-    pranNumber: '',
-    siNumber: '',
-    ddoName: 'प्रधानाचार्य / संस्था प्रधान',
-    officeTan: '',
-    payLevel: 'L-10',
-    currentBasic: 38000,
+    empName: 'Nagji Yadav',
+    designation: 'TEACHER',
+    schoolName: 'Govt.Praveshika Sanskrit School kunwa',
+    panNumber: 'AHHPY4147Q',
+    pranNumber: '1100XXXXXXXX',
+    siNumber: 'RJ-SI-XXXXXX',
+    ddoName: 'JEEVRAJ PARMAR',
+    officeTan: 'JDHG20338D',
+    bankAccount: '15000100003153',
+    mobileNo: '9982151938',
+    payLevel: 'L-11',
+    currentBasic: 47900,
     financialYear: '2024-25',
     assessmentYear: '2025-26',
     cityCategory: 'Z',
+    currentHraRate: 9,
     isSeniorCitizen: false,
     isDivyangSelf: false,
     divyangSeveritySelf: '40to79',
@@ -40,72 +42,130 @@ export function App() {
 
   // Old Regime Deductions
   const [deductionsOld, setDeductionsOld] = useState<TaxDeductionsOld>({
+    actualRentPaid12M: 53000,
+    hraExemptionClaimed: 0,
+    sec16ii_Entertainment: 0,
+    sec16iii_ProfessionalTax: 0,
+    incomeFromHouseProperty: 0,
+    sec24b_HomeLoanInterest: 200000,
+    municipalTaxPaid: 0,
+    bankSavingInterest: 0,
+    fdOtherInterest: 0,
+    otherIncomeSources: 0,
     sec80C_LicPli: 0,
     sec80C_PpfSsy: 0,
     sec80C_TuitionFee: 0,
-    sec80C_HomeLoanPrincipal: 0,
+    sec80C_HomeLoanPrincipal: 50000,
     sec80C_NscElssFd: 0,
+    sec80C_OtherItems: 0,
+    sec80CCD1_GovtPensionEmp: 0,
+    sec80CCD2_EmployerNPS: 0,
     sec80CCD1B_NpsAdditional: 0,
+    sec80CCC_PensionPlan: 0,
     sec80D_MediclaimSelf: 0,
     sec80D_MediclaimParents: 0,
     sec80D_ParentsSenior: false,
-    sec24b_HomeLoanInterest: 0,
+    sec80DDB_MedicalTreatment: 0,
     sec80E_EduLoanInterest: 0,
     sec80G_Donations: 0,
-    sec80DDB_MedicalTreatment: 0,
+    sec80GGC_PoliticalDonation: 0,
+    sec80TTA_InterestRebate: 0,
+    sec80TTB_SeniorInterestRebate: 0,
+    sec89_ReliefArrears: 0,
     otherDeductionsChapVIA: 0
   });
 
-  // Initial Monthly Pay Records setup
-  const [records, setRecords] = useState<MonthlyPayRecord[]>(() => {
-    const basic = 38000;
-    const defaultSi = getRajasthanSiSlab(basic).min;
+  // Reset Records Helper
+  const generateInitialRecords = (basic: number) => {
+    const defaultSi = 5000;
     const defaultRghs = getRajasthanRghsMonthly(basic);
-    const defaultGpf = getRajasthanGpfMonthly(basic);
-    const hraPercent = 8; // Z-class default
+    const defaultGpf = 2850;
+    const hraPercent = 9;
 
-    return FINANCIAL_MONTHS.map((m) => {
-      const daAmount = Math.round((basic * m.daPercent) / 100);
-      const hraAmount = Math.round((basic * hraPercent) / 100);
-      const gis = m.key === 'apr' ? 350 : 0;
+    return FINANCIAL_MONTHS.map((m, idx) => {
+      // Step increment in July if teacher (from 47900 to 49300)
+      const curBasic = idx >= 4 ? 49300 : basic;
+      const daAmount = Math.round((curBasic * m.daPercent) / 100);
+      const hraAmount = Math.round((curBasic * (idx >= 8 ? 10 : hraPercent)) / 100);
+      const gis = m.key === 'apr' ? 700 : 0;
       const bonus = m.key === 'oct' ? 6774 : 0;
-      const gross = basic + daAmount + hraAmount + bonus;
-      const totalDed = defaultGpf + defaultSi + defaultRghs + gis;
+      const daArrear = m.key === 'oct' ? 5916 : 0;
+      const gross = curBasic + daAmount + hraAmount + bonus + daArrear;
+      const gpfTotal = defaultGpf + (m.key === 'oct' ? 5916 + 1694 : 0);
+      const siTotal = idx >= 7 ? 10000 : defaultSi;
+      const totalDed = gpfTotal + siTotal + defaultRghs + gis;
 
       return {
         monthName: m.name,
         monthKey: m.key,
-        basicPay: basic,
+        basicPay: curBasic,
         daRate: m.daPercent,
         daAmount,
-        hraRate: hraPercent,
+        hraRate: idx >= 8 ? 10 : hraPercent,
         hraAmount,
-        daArrear: 0,
+        splPay: 0,
+        ccaAmount: 0,
+        daArrear,
         bonus,
         plSurrender: 0,
         otherAllowances: 0,
         grossSalary: gross,
-        gpfAmount: defaultGpf,
-        siAmount: defaultSi,
+        gpfAmount: gpfTotal,
+        gpfLoan: 0,
+        siAmount: siTotal,
+        siLoan: 0,
         rghsAmount: defaultRghs,
         gisAmount: gis,
+        licSalary: 0,
         itTdsAmount: 0,
+        hitkariNidhi: 0,
         otherDeductions: 0,
         totalDeductions: totalDed,
         netPayable: gross - totalDed
       };
     });
-  });
+  };
+
+  const [records, setRecords] = useState<MonthlyPayRecord[]>(() => generateInitialRecords(47900));
+
+  // Handler for manual cell edits in GA-55
+  const handleUpdateRecord = (index: number, field: keyof MonthlyPayRecord, value: number) => {
+    setRecords(prev => {
+      const updated = [...prev];
+      const r = { ...updated[index], [field]: value };
+      
+      // Auto re-compute gross and deductions
+      const gross = (r.basicPay || 0) + (r.daAmount || 0) + (r.hraAmount || 0) + (r.splPay || 0) + (r.ccaAmount || 0) + (r.bonus || 0) + (r.daArrear || 0) + (r.plSurrender || 0) + (r.otherAllowances || 0);
+      const totalDed = (r.gpfAmount || 0) + (r.gpfLoan || 0) + (r.siAmount || 0) + (r.siLoan || 0) + (r.rghsAmount || 0) + (r.gisAmount || 0) + (r.licSalary || 0) + (r.itTdsAmount || 0) + (r.hitkariNidhi || 0) + (r.otherDeductions || 0);
+      
+      r.grossSalary = gross;
+      r.totalDeductions = totalDed;
+      r.netPayable = gross - totalDed;
+      
+      updated[index] = r;
+      return updated;
+    });
+  };
+
+  const handleResetRecords = () => {
+    setRecords(generateInitialRecords(profile.currentBasic));
+  };
 
   // Annual Totals from records
-  const annualGross = useMemo(() => records.reduce((s, r) => s + r.grossSalary, 0), [records]);
-  const annualGpf = useMemo(() => records.reduce((s, r) => s + r.gpfAmount, 0), [records]);
-  const annualSi = useMemo(() => records.reduce((s, r) => s + r.siAmount, 0), [records]);
-  const annualRghs = useMemo(() => records.reduce((s, r) => s + r.rghsAmount, 0), [records]);
+  const totalBasic12M = useMemo(() => records.reduce((s, r) => s + (r.basicPay || 0), 0), [records]);
+  const totalDA12M = useMemo(() => records.reduce((s, r) => s + (r.daAmount || 0), 0), [records]);
+  const totalHRA12M = useMemo(() => records.reduce((s, r) => s + (r.hraAmount || 0), 0), [records]);
+  const annualGross = useMemo(() => records.reduce((s, r) => s + (r.grossSalary || 0), 0), [records]);
+  const annualGpf = useMemo(() => records.reduce((s, r) => s + (r.gpfAmount || 0), 0), [records]);
+  const annualSi = useMemo(() => records.reduce((s, r) => s + (r.siAmount || 0), 0), [records]);
+  const annualRghs = useMemo(() => records.reduce((s, r) => s + (r.rghsAmount || 0), 0), [records]);
 
   // Comparison Results
   const compResult = useMemo(() => {
     return computeTaxComparison(
+      totalBasic12M,
+      totalDA12M,
+      totalHRA12M,
       annualGross,
       profile,
       deductionsOld,
@@ -113,7 +173,7 @@ export function App() {
       annualSi,
       annualRghs
     );
-  }, [annualGross, profile, deductionsOld, annualGpf, annualSi, annualRghs]);
+  }, [totalBasic12M, totalDA12M, totalHRA12M, annualGross, profile, deductionsOld, annualGpf, annualSi, annualRghs]);
 
   const handleResetForm = () => {
     if (window.confirm('क्या आप फॉर्म रीसेट करके नया हिसाब लगाना चाहते हैं?')) {
@@ -122,7 +182,7 @@ export function App() {
   };
 
   const handleShareWhatsApp = () => {
-    const text = `📊 *राजस्थान कार्मिक इनकम टैक्स कैलकुलेटर (New vs Old Regime)*\nसकल आय: ₹${compResult.grossTotalIncome.toLocaleString('en-IN')}\n✨ New Regime Tax: ₹${compResult.new_totalTaxPayable.toLocaleString('en-IN')}\n📜 Old Regime Tax: ₹${compResult.old_totalTaxPayable.toLocaleString('en-IN')}\n💡 अनुशंसा: ${compResult.savingSuggestion}\n\n👉 अभी अपना टैक्स जांचें: ${window.location.href}`;
+    const text = `📊 *राजस्थान कार्मिक इनकम टैक्स कैलकुलेटर 2024-25 (New vs Old Regime)*\nसकल आय: ₹${compResult.grossTotalIncome.toLocaleString('en-IN')}\n✨ New Regime Tax: ₹${compResult.new_totalTaxPayable.toLocaleString('en-IN')}\n📜 Old Regime Tax: ₹${compResult.old_totalTaxPayable.toLocaleString('en-IN')}\n💡 अनुशंसा: ${compResult.savingSuggestion}\n\n👉 अभी अपना टैक्स जांचें: ${window.location.href}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -130,22 +190,22 @@ export function App() {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       {/* Top Application Navbar */}
       <header className="bg-slate-900 text-white shadow-md border-b border-slate-800 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-md">
-              <Calculator className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-md">
+              <Calculator className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-base md:text-lg tracking-tight text-white">
-                  राजस्थान कार्मिक इनकम टैक्स कैलकुलेटर
+                <h1 className="font-extrabold text-sm md:text-base tracking-tight text-white">
+                  राजस्थान कार्मिक आयकर कैलकुलेटर (FY 2024-25)
                 </h1>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">
-                  New vs Old (100% Accurate)
+                  100% PayManager GA-55 मानक
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                पे-मैनेजर GA-55 लेजर • DDO प्रपत्र Form 16 • धारा अनुसार आयकर छूट नियम (80U, 80D, 80C)
+              <p className="text-[11px] text-slate-400">
+                1 Page A4 GA-55 • 1 Page A4 DDO आयकर प्रपत्र • आवश्यक दस्तावेज चेकलिस्ट
               </p>
             </div>
           </div>
@@ -176,57 +236,57 @@ export function App() {
           <div className="max-w-7xl mx-auto flex overflow-x-auto gap-2 py-2 text-xs md:text-sm font-bold scrollbar-none">
             <button
               onClick={() => setActiveTab('calculator')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'calculator'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <Calculator className="w-4 h-4" />
-              <span>टैक्स कैलकुलेटर (New vs Old)</span>
+              <span>1. टैक्स गणना व दस्तावेज चेकलिस्ट</span>
             </button>
 
             <button
               onClick={() => setActiveTab('ga55')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'ga55'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>GA-55 सैलरी लेजर</span>
+              <span>2. GA-55 सैलरी लेजर (A4 Page 1)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('ddoStatement')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'ddoStatement'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>DDO आयकर प्रपत्र (Form 16)</span>
+              <span>3. DDO आयकर प्रपत्र (A4 Page 2)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('rules')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                 activeTab === 'rules'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>📖 आयकर धाराएं व छूट नियम (80U, 80D, 80C)</span>
+              <span>4. आयकर धाराएं व नियम निर्देशिका (80U, 80D, 80C)</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex-1">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 flex-1">
         {activeTab === 'calculator' && (
           <CalculatorView
             profile={profile}
@@ -236,7 +296,6 @@ export function App() {
             deductionsOld={deductionsOld}
             setDeductionsOld={setDeductionsOld}
             compResult={compResult}
-            onSelectRegimeForDDO={setSelectedRegimeForDDO}
             onNavigateTab={setActiveTab}
           />
         )}
@@ -245,6 +304,8 @@ export function App() {
           <Ga55LedgerView
             profile={profile}
             records={records}
+            onUpdateRecord={handleUpdateRecord}
+            onResetRecords={handleResetRecords}
           />
         )}
 
@@ -253,7 +314,9 @@ export function App() {
             profile={profile}
             compResult={compResult}
             deductionsOld={deductionsOld}
-            selectedRegimeForDDO={selectedRegimeForDDO}
+            totalBasic12M={totalBasic12M}
+            totalDA12M={totalDA12M}
+            totalHRA12M={totalHRA12M}
           />
         )}
 
@@ -263,12 +326,12 @@ export function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 text-xs py-6 mt-12 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 text-xs py-5 mt-10 no-print">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3 text-center md:text-left">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-500" />
             <div>
-              <p className="text-white font-bold">राजस्थान शिक्षक व कर्मचारी आयकर डिजिटल पोर्टल</p>
+              <p className="text-white font-bold">राजस्थान शिक्षक व कर्मचारी आयकर डिजिटल उपयोगिता</p>
               <p className="text-slate-500 text-[11px]">100% ऑफ़लाइन क्लाइंट-साइड सुरक्षा • आपका कोई भी वित्तीय डेटा सर्वर पर स्टोर नहीं होता</p>
             </div>
           </div>

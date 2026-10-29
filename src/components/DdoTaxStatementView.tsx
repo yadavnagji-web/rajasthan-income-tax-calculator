@@ -1,208 +1,291 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { EmployeeProfile, TaxComparisonResult, TaxDeductionsOld } from '../types/taxTypes';
-import { Printer, ShieldCheck, CheckCircle2, Award, FileText } from 'lucide-react';
+import { Printer, ShieldCheck, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface TaxStatementProps {
   profile: EmployeeProfile;
   compResult: TaxComparisonResult;
   deductionsOld: TaxDeductionsOld;
-  selectedRegimeForDDO: 'NEW' | 'OLD';
+  totalBasic12M: number;
+  totalDA12M: number;
+  totalHRA12M: number;
 }
 
 export const DdoTaxStatementView: React.FC<TaxStatementProps> = ({
   profile,
   compResult,
   deductionsOld,
-  selectedRegimeForDDO
+  totalBasic12M,
+  totalDA12M,
+  totalHRA12M
 }) => {
+  const [activeRegimeView, setActiveRegimeView] = useState<'OLD' | 'NEW'>('OLD');
+
   const handlePrint = () => {
     window.print();
   };
 
-  const isOld = selectedRegimeForDDO === 'OLD';
+  const isOld = activeRegimeView === 'OLD';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Banner Actions */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4 no-print">
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 no-print">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <h2 className="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
             <FileText className="w-5 h-5 text-emerald-700" />
-            आयकर आगणन प्रपत्र (Form 16 Part-B / Tax Estimation Statement)
+            आयकर आगणन प्रपत्र (Form 16 Part-B / Computation Sheet)
           </h2>
           <p className="text-xs text-slate-500">
-            DDO कार्यालय एवं ट्रेजरी में जमा कराने हेतु राजस्थान का अधिकृत मानक A4 प्रारूप
+            A4 पेज पर सटीक 1 पेज में सेट • राजस्थान शिक्षा विभाग एवं DDO मानक प्रारूप
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg text-xs font-bold text-slate-700">
-            <span>प्रपत्र हेतु चयनित व्यवस्था:</span>
-            <span className={`px-2.5 py-1 rounded text-white ${isOld ? 'bg-amber-600' : 'bg-emerald-700'}`}>
-              {isOld ? 'पुरानी कर व्यवस्था (Old Regime)' : 'नई कर व्यवस्था (New Regime)'}
-            </span>
+
+        <div className="flex items-center gap-2">
+          {/* Regime Switcher */}
+          <div className="inline-flex rounded-lg border border-slate-300 p-0.5 bg-slate-100 text-xs font-bold">
+            <button
+              onClick={() => setActiveRegimeView('OLD')}
+              className={`px-3 py-1.5 rounded-md transition-all ${
+                activeRegimeView === 'OLD'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-700 hover:text-slate-900'
+              }`}
+            >
+              📜 पुरानी व्यवस्था (Old Regime)
+            </button>
+            <button
+              onClick={() => setActiveRegimeView('NEW')}
+              className={`px-3 py-1.5 rounded-md transition-all ${
+                activeRegimeView === 'NEW'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:text-slate-900'
+              }`}
+            >
+              ✨ नई व्यवस्था (New Regime)
+            </button>
           </div>
+
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-bold shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
           >
             <Printer className="w-4 h-4" />
-            प्रपत्र प्रिंट / PDF सेव करें
+            <span>A4 प्रिंट / PDF</span>
           </button>
         </div>
       </div>
 
-      {/* A4 Size Printable Statement */}
-      <div className="bg-white p-6 md:p-10 rounded-xl border border-slate-300 shadow-sm text-slate-900 printable-area max-w-[850px] mx-auto text-[12.5px] leading-relaxed">
+      {/* SINGLE A4 PRINTABLE CONTAINER (100% Page Fit) */}
+      <div className="bg-white p-5 md:p-7 rounded-xl border border-slate-300 shadow-sm text-slate-900 a4-page-container text-[11px] leading-tight">
         {/* Official Header */}
-        <div className="text-center border-b-2 border-slate-800 pb-3 mb-4">
-          <h1 className="text-lg md:text-xl font-extrabold uppercase text-slate-900">
-            कार्यालय: {profile.schoolName || 'राजकीय उच्च माध्यमिक विद्यालय, राजस्थान'}
+        <div className="text-center border-b-2 border-slate-800 pb-2 mb-2">
+          <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono mb-0.5">
+            <span>OFFICE: {profile.schoolName || 'Govt. Senior Secondary School'}</span>
+            <span className="font-bold text-slate-900 uppercase bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+              {isOld ? 'Old Tax Regime' : 'New Tax Regime'}
+            </span>
+          </div>
+          <h1 className="text-base font-extrabold uppercase text-slate-900">
+            आयकर गणना प्रपत्र वर्ष 2024-25 (कर निर्धारण वर्ष 2025-26)
           </h1>
-          <h2 className="text-sm font-bold text-slate-800 uppercase mt-0.5">
-            वेतनभोगी कर्मचारी आयकर आगणन एवं कटौती विवरण पत्र (वित्तीय वर्ष {profile.financialYear})
-          </h2>
-          <p className="text-xs text-slate-600">
-            कर निर्धारण वर्ष (Assessment Year): <strong>{profile.assessmentYear}</strong> | नियम: आयकर अधिनियम 1961
+          <p className="text-[10px] text-slate-600">
+            वेतनभोगी कर्मचारी कर निर्धारण विवरण (आयकर अधिनियम, 1961 के अंतर्गत)
           </p>
         </div>
 
-        {/* Part A: Employee Details */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 bg-slate-50 p-3 rounded border border-slate-300 mb-4 text-xs">
-          <div>1. कर्मचारी का नाम: <strong>{profile.empName || 'श्री / श्रीमती कार्मिक'}</strong></div>
-          <div>2. पद (Designation): <strong>{profile.designation || 'अध्यापक / व्याख्याता'}</strong></div>
-          <div>3. स्थायी खाता संख्या (PAN): <strong className="font-mono">{profile.panNumber || 'ABCDE1234F'}</strong></div>
-          <div>4. PRAN / GPF खाता संख्या: <strong className="font-mono">{profile.pranNumber || '1100XXXXXXXX'}</strong></div>
-          <div>5. पे-मैट्रिक्स लेवल: <strong>{profile.payLevel} (बेसिक: ₹{profile.currentBasic.toLocaleString('en-IN')})</strong></div>
-          <div>6. राज्य बीमा पॉलिसी (SI No): <strong className="font-mono">{profile.siNumber || 'SI-XXXXXX'}</strong></div>
-          <div>7. कार्यालय TAN नंबर: <strong className="font-mono">{profile.officeTan || 'JPRRXXXXX'}</strong></div>
-          <div>8. चुनी गई कर व्यवस्था: <strong className="text-emerald-800 uppercase">{selectedRegimeForDDO} TAX REGIME</strong></div>
+        {/* Employee Summary Row */}
+        <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded border border-slate-300 mb-2 text-[10.5px]">
+          <div>1. नाम कर्मचारी: <strong>{profile.empName || 'Nagji Yadav'}</strong></div>
+          <div>पद: <strong>{profile.designation || 'TEACHER'} ({profile.payLevel})</strong></div>
+          <div>PAN: <strong className="font-mono">{profile.panNumber || 'AHHPY4147Q'}</strong></div>
         </div>
 
-        {/* Part B: Numerical Tax Calculation Table */}
-        <table className="w-full border-collapse border border-slate-400 mb-4 text-xs">
-          <thead>
-            <tr className="bg-slate-200 text-slate-900 font-bold">
-              <th className="border border-slate-400 p-2 text-center w-12">क्र. सं.</th>
-              <th className="border border-slate-400 p-2 text-left">आय एवं कटौती का विवरण (Particulars)</th>
-              <th className="border border-slate-400 p-2 text-right w-36">राशि (रुपये में)</th>
-            </tr>
-          </thead>
+        {/* Computation Table */}
+        <table className="w-full border-collapse border border-slate-400 mb-2 text-[10.5px]">
           <tbody>
             <tr>
-              <td className="border border-slate-400 p-1.5 text-center font-bold">1</td>
-              <td className="border border-slate-400 p-1.5">सकल वेतन (Gross Salary as per PayManager GA-55)</td>
-              <td className="border border-slate-400 p-1.5 text-right font-mono font-bold">₹{compResult.grossTotalIncome.toLocaleString('en-IN')}</td>
+              <td className="border border-slate-400 p-1 text-center font-bold w-7">2</td>
+              <td className="border border-slate-400 p-1">वर्ष 2024-25 में प्राप्त कुल सकल वेतन (Gross Salary as per GA-55)</td>
+              <td className="border border-slate-400 p-1 text-right font-mono font-bold w-28">{compResult.grossTotalIncome}</td>
             </tr>
 
-            {/* Deductions breakdown */}
+            {/* HRA Exemption Sec 10(13A) */}
+            <tr>
+              <td className="border border-slate-400 p-1 text-center font-bold">3</td>
+              <td className="border border-slate-400 p-1">
+                गृह किराया धारा 10(13A) एवं धारा 10(14) अंतर्गत अन्य भत्ते जो करमुक्त हैं
+              </td>
+              <td className="border border-slate-400 p-1 text-right font-mono">
+                {isOld ? compResult.calculatedHraExemption : 0}
+              </td>
+            </tr>
+
+            <tr className="bg-slate-50">
+              <td className="border border-slate-400 p-1 text-center font-bold">4</td>
+              <td className="border border-slate-400 p-1 font-semibold">शेष वेतन आय (2 - 3)</td>
+              <td className="border border-slate-400 p-1 text-right font-mono font-bold">
+                {isOld ? (compResult.grossTotalIncome - compResult.calculatedHraExemption) : compResult.grossTotalIncome}
+              </td>
+            </tr>
+
+            {/* Standard Deduction */}
+            <tr>
+              <td className="border border-slate-400 p-1 text-center font-bold">5</td>
+              <td className="border border-slate-400 p-1">
+                (i) स्टैंडर्ड डिडक्शन (Standard Deduction) धारा 16(ia) [{isOld ? '₹50,000' : '₹75,000'}]
+                <br />
+                (ii) मनोरंजन भत्ता / (iii) व्यवसाय कर धारा 16
+              </td>
+              <td className="border border-slate-400 p-1 text-right font-mono font-bold text-red-700">
+                {isOld ? 50000 : 75000}
+              </td>
+            </tr>
+
+            <tr className="bg-slate-50">
+              <td className="border border-slate-400 p-1 text-center font-bold">6</td>
+              <td className="border border-slate-400 p-1 font-semibold">शेष वेतन आय (4 - 5)</td>
+              <td className="border border-slate-400 p-1 text-right font-mono font-bold">
+                {isOld 
+                  ? (compResult.grossTotalIncome - compResult.calculatedHraExemption - 50000)
+                  : (compResult.grossTotalIncome - 75000)
+                }
+              </td>
+            </tr>
+
+            {/* Home Loan Interest 24(b) (Old only) */}
+            {isOld && (
+              <tr>
+                <td className="border border-slate-400 p-1 text-center font-bold">7</td>
+                <td className="border border-slate-400 p-1">
+                  गृह संपत्ति हानि / गृह ऋण ब्याज धारा 24(b) [अधिकतम ₹2,00,000]
+                </td>
+                <td className="border border-slate-400 p-1 text-right font-mono text-red-700">
+                  {compResult.old_sec24b_homeLoan > 0 ? `-${compResult.old_sec24b_homeLoan}` : '0'}
+                </td>
+              </tr>
+            )}
+
+            <tr className="bg-slate-100 font-bold">
+              <td className="border border-slate-400 p-1 text-center">8</td>
+              <td className="border border-slate-400 p-1">सकल करयोग्य आय (Gross Income before Chapter VI-A)</td>
+              <td className="border border-slate-400 p-1 text-right font-mono font-bold">
+                {isOld 
+                  ? Math.max(0, compResult.grossTotalIncome - compResult.calculatedHraExemption - 50000 - compResult.old_sec24b_homeLoan)
+                  : (compResult.grossTotalIncome - 75000)
+                }
+              </td>
+            </tr>
+
+            {/* Chapter VI-A Deductions (Old Regime) */}
             {isOld ? (
               <>
-                <tr className="bg-slate-50">
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">2</td>
-                  <td className="border border-slate-400 p-1.5">कम करें: मानक कटौती (Standard Deduction u/s 16(ia))</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono text-red-700 font-bold">- ₹50,000</td>
-                </tr>
-                {compResult.old_sec24b_homeLoan > 0 && (
-                  <tr>
-                    <td className="border border-slate-400 p-1.5 text-center font-bold">3</td>
-                    <td className="border border-slate-400 p-1.5">कम करें: गृह ऋण ब्याज (Home Loan Interest u/s 24(b))</td>
-                    <td className="border border-slate-400 p-1.5 text-right font-mono text-red-700">- ₹{compResult.old_sec24b_homeLoan.toLocaleString('en-IN')}</td>
-                  </tr>
-                )}
-                <tr className="bg-slate-50 font-semibold">
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">4</td>
-                  <td className="border border-slate-400 p-1.5">वेतन से सकल करयोग्य आय (Gross Income before Chapter VI-A)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono font-bold">
-                    ₹{(compResult.grossTotalIncome - 50000 - compResult.old_sec24b_homeLoan).toLocaleString('en-IN')}
-                  </td>
-                </tr>
-                {/* Chapter VI-A */}
                 <tr>
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">5</td>
-                  <td className="border border-slate-400 p-1.5">
-                    <strong>अध्याय VI-A के तहत स्वीकृत कटौतियां:</strong>
-                    <div className="pl-3 pt-1 text-[11px] text-slate-600 space-y-0.5">
-                      <div>• धारा 80C (GPF: ₹{compResult.old_sec80C_gpf.toLocaleString('en-IN')}, SI: ₹{compResult.old_sec80C_si.toLocaleString('en-IN')}, अन्य: ₹{compResult.old_sec80C_others.toLocaleString('en-IN')}) [अधिकतम ₹1,50,000]: <strong>₹{compResult.old_sec80C_totalAllowed.toLocaleString('en-IN')}</strong></div>
-                      {compResult.old_sec80CCD1B > 0 && <div>• धारा 80CCD(1B) NPS अतिरिक्त अंशदान: <strong>₹{compResult.old_sec80CCD1B.toLocaleString('en-IN')}</strong></div>}
-                      {compResult.old_sec80D > 0 && <div>• धारा 80D (RGHS कटौती एवं स्वास्थ्य बीमा): <strong>₹{compResult.old_sec80D.toLocaleString('en-IN')}</strong></div>}
-                      {compResult.old_sec80U_divyang > 0 && <div>• धारा 80U (स्वयं दिव्यांग कार्मिक विशेष छूट): <strong>₹{compResult.old_sec80U_divyang.toLocaleString('en-IN')}</strong></div>}
-                      {compResult.old_sec80DD_dependent > 0 && <div>• धारा 80DD (आश्रित दिव्यांग परिजन देख-रेख): <strong>₹{compResult.old_sec80DD_dependent.toLocaleString('en-IN')}</strong></div>}
-                      {compResult.old_otherDeductions > 0 && <div>• अन्य अध्याय VI-A कटौतियां (80E, 80G आदि): <strong>₹{compResult.old_otherDeductions.toLocaleString('en-IN')}</strong></div>}
+                  <td className="border border-slate-400 p-1 text-center font-bold">9</td>
+                  <td className="border border-slate-400 p-1">
+                    <strong>धारा 80C, 80CCC, 80CCD(1) स्वीकृत कटौती (अधिकतम ₹1,50,000):</strong>
+                    <div className="text-[10px] text-slate-600 pl-2">
+                      (i) SI: ₹{compResult.old_sec80C_si} | (ii) GPF: ₹{compResult.old_sec80C_gpf} | (iii) LIC/PLI/ट्यूशन/होम लोन मूलधन: ₹{compResult.old_sec80C_others}
                     </div>
                   </td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono text-red-700 font-bold">
-                    - ₹{(compResult.old_totalDeductions - 50000 - compResult.old_sec24b_homeLoan).toLocaleString('en-IN')}
+                  <td className="border border-slate-400 p-1 text-right font-mono font-bold text-red-700">
+                    {compResult.old_sec80C_totalAllowed}
                   </td>
                 </tr>
-                <tr className="bg-emerald-50 font-bold text-slate-900">
-                  <td className="border border-slate-400 p-1.5 text-center">6</td>
-                  <td className="border border-slate-400 p-1.5">शुद्ध करयोग्य आय (Net Taxable Income)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono text-emerald-950 font-extrabold">
-                    ₹{compResult.old_taxableIncome.toLocaleString('en-IN')}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">7</td>
-                  <td className="border border-slate-400 p-1.5">स्लैब अनुसार परिकलित आयकर (Tax before Rebate)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono">₹{compResult.old_taxBeforeRebate.toLocaleString('en-IN')}</td>
-                </tr>
-                {compResult.old_rebate87A > 0 && (
+
+                {compResult.old_sec80CCD1B > 0 && (
                   <tr>
-                    <td className="border border-slate-400 p-1.5 text-center font-bold">8</td>
-                    <td className="border border-slate-400 p-1.5">कम करें: धारा 87A के तहत कर छूट (Tax Rebate u/s 87A)</td>
-                    <td className="border border-slate-400 p-1.5 text-right font-mono text-emerald-700 font-bold">- ₹{compResult.old_rebate87A.toLocaleString('en-IN')}</td>
+                    <td className="border border-slate-400 p-1 text-center font-bold">10</td>
+                    <td className="border border-slate-400 p-1">धारा 80CCD(1B) नवीन पेंशन योजना (NPS) में अतिरिक्त अंशदान (अधिकतम ₹50,000)</td>
+                    <td className="border border-slate-400 p-1 text-right font-mono text-red-700">{compResult.old_sec80CCD1B}</td>
                   </tr>
                 )}
+
                 <tr>
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">9</td>
-                  <td className="border border-slate-400 p-1.5">स्वास्थ्य एवं शिक्षा उपकर (Health & Education Cess @ 4%)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono">₹{compResult.old_cess.toLocaleString('en-IN')}</td>
+                  <td className="border border-slate-400 p-1 text-center font-bold">11</td>
+                  <td className="border border-slate-400 p-1">
+                    <strong>अन्य अध्याय VI-A कटौतियां:</strong>
+                    <div className="text-[10px] text-slate-600 pl-2">
+                      • 80D (RGHS व मेडिक्लेम): ₹{compResult.old_sec80D} | • 80U (दिव्यांग कार्मिक): ₹{compResult.old_sec80U_divyang} | • 80DD (दिव्यांग आश्रित): ₹{compResult.old_sec80DD_dependent} | • अन्य (80E, 80G, 80TTA): ₹{compResult.old_otherDeductions}
+                    </div>
+                  </td>
+                  <td className="border border-slate-400 p-1 text-right font-mono text-red-700 font-bold">
+                    {compResult.old_sec80D + compResult.old_sec80U_divyang + compResult.old_sec80DD_dependent + compResult.old_otherDeductions}
+                  </td>
                 </tr>
-                <tr className="bg-slate-200 font-extrabold text-slate-900 text-sm">
-                  <td className="border border-slate-400 p-2 text-center">10</td>
-                  <td className="border border-slate-400 p-2">कुल देय आयकर (Net Total Tax Payable - Old Regime)</td>
-                  <td className="border border-slate-400 p-2 text-right font-mono text-emerald-950">
-                    ₹{compResult.old_totalTaxPayable.toLocaleString('en-IN')}
+
+                <tr className="bg-emerald-50 font-bold">
+                  <td className="border border-slate-400 p-1 text-center">12</td>
+                  <td className="border border-slate-400 p-1">शुद्ध कर योग्य आय (Net Taxable Income) [10 के गुणक में]</td>
+                  <td className="border border-slate-400 p-1 text-right font-mono font-black text-emerald-950 text-xs">
+                    {compResult.old_taxableIncome}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td className="border border-slate-400 p-1 text-center font-bold">13</td>
+                  <td className="border border-slate-400 p-1">स्लैब अनुसार परिकलित आयकर (Tax before Rebate)</td>
+                  <td className="border border-slate-400 p-1 text-right font-mono">{compResult.old_taxBeforeRebate}</td>
+                </tr>
+
+                {compResult.old_rebate87A > 0 && (
+                  <tr>
+                    <td className="border border-slate-400 p-1 text-center font-bold">14</td>
+                    <td className="border border-slate-400 p-1">कम करें: धारा 87A के तहत कर छूट (अधिकतम ₹12,500)</td>
+                    <td className="border border-slate-400 p-1 text-right font-mono text-emerald-700 font-bold">-{compResult.old_rebate87A}</td>
+                  </tr>
+                )}
+
+                <tr>
+                  <td className="border border-slate-400 p-1 text-center font-bold">15</td>
+                  <td className="border border-slate-400 p-1">स्वास्थ्य एवं शिक्षा उपकर (Health & Education Cess @ 4%)</td>
+                  <td className="border border-slate-400 p-1 text-right font-mono">{compResult.old_cess}</td>
+                </tr>
+
+                <tr className="bg-slate-200 font-black text-xs text-slate-900">
+                  <td className="border border-slate-400 p-1.5 text-center">16</td>
+                  <td className="border border-slate-400 p-1.5 uppercase">कुल देय आयकर (Net Total Tax Payable - Old Regime)</td>
+                  <td className="border border-slate-400 p-1.5 text-right font-mono text-emerald-950 text-sm">
+                    ₹{compResult.old_totalTaxPayable}
                   </td>
                 </tr>
               </>
             ) : (
               // NEW REGIME ROWS
               <>
-                <tr className="bg-slate-50">
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">2</td>
-                  <td className="border border-slate-400 p-1.5">कम करें: मानक कटौती (Standard Deduction u/s 16(ia) - New Regime)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono text-red-700 font-bold">- ₹75,000</td>
-                </tr>
-                <tr className="bg-emerald-50 font-bold text-slate-900">
-                  <td className="border border-slate-400 p-1.5 text-center">3</td>
-                  <td className="border border-slate-400 p-1.5">शुद्ध करयोग्य आय (Net Taxable Income u/s 115BAC)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono text-emerald-950 font-extrabold">
-                    ₹{compResult.new_taxableIncome.toLocaleString('en-IN')}
+                <tr className="bg-emerald-50 font-bold">
+                  <td className="border border-slate-400 p-1 text-center">9</td>
+                  <td className="border border-slate-400 p-1">शुद्ध कर योग्य आय (Net Taxable Income u/s 115BAC)</td>
+                  <td className="border border-slate-400 p-1 text-right font-mono font-black text-emerald-950 text-xs">
+                    {compResult.new_taxableIncome}
                   </td>
                 </tr>
+
                 <tr>
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">4</td>
-                  <td className="border border-slate-400 p-1.5">न्यू स्लैब अनुसार परिकलित आयकर (Tax before Rebate)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono">₹{compResult.new_taxBeforeRebate.toLocaleString('en-IN')}</td>
+                  <td className="border border-slate-400 p-1 text-center font-bold">10</td>
+                  <td className="border border-slate-400 p-1">न्यू स्लैब अनुसार परिकलित आयकर (Tax before Rebate)</td>
+                  <td className="border border-slate-400 p-1 text-right font-mono">{compResult.new_taxBeforeRebate}</td>
                 </tr>
+
                 {compResult.new_rebate87A > 0 && (
                   <tr>
-                    <td className="border border-slate-400 p-1.5 text-center font-bold">5</td>
-                    <td className="border border-slate-400 p-1.5">कम करें: धारा 87A के तहत पूर्ण कर छूट (Rebate u/s 87A - ₹7 लाख तक)</td>
-                    <td className="border border-slate-400 p-1.5 text-right font-mono text-emerald-700 font-bold">- ₹{compResult.new_rebate87A.toLocaleString('en-IN')}</td>
+                    <td className="border border-slate-400 p-1 text-center font-bold">11</td>
+                    <td className="border border-slate-400 p-1">कम करें: धारा 87A पूर्ण छूट (आय ₹7 लाख तक होने पर ₹25,000 तक)</td>
+                    <td className="border border-slate-400 p-1 text-right font-mono text-emerald-700 font-bold">-{compResult.new_rebate87A}</td>
                   </tr>
                 )}
+
                 <tr>
-                  <td className="border border-slate-400 p-1.5 text-center font-bold">6</td>
-                  <td className="border border-slate-400 p-1.5">स्वास्थ्य एवं शिक्षा उपकर (Health & Education Cess @ 4%)</td>
-                  <td className="border border-slate-400 p-1.5 text-right font-mono">₹{compResult.new_cess.toLocaleString('en-IN')}</td>
+                  <td className="border border-slate-400 p-1 text-center font-bold">12</td>
+                  <td className="border border-slate-400 p-1">स्वास्थ्य एवं शिक्षा उपकर (Health & Education Cess @ 4%)</td>
+                  <td className="border border-slate-400 p-1 text-right font-mono">{compResult.new_cess}</td>
                 </tr>
-                <tr className="bg-slate-200 font-extrabold text-slate-900 text-sm">
-                  <td className="border border-slate-400 p-2 text-center">7</td>
-                  <td className="border border-slate-400 p-2">कुल देय आयकर (Net Total Tax Payable - New Regime)</td>
-                  <td className="border border-slate-400 p-2 text-right font-mono text-emerald-950">
-                    ₹{compResult.new_totalTaxPayable.toLocaleString('en-IN')}
+
+                <tr className="bg-slate-200 font-black text-xs text-slate-900">
+                  <td className="border border-slate-400 p-1.5 text-center">13</td>
+                  <td className="border border-slate-400 p-1.5 uppercase">कुल देय आयकर (Net Total Tax Payable - New Regime)</td>
+                  <td className="border border-slate-400 p-1.5 text-right font-mono text-emerald-950 text-sm">
+                    ₹{compResult.new_totalTaxPayable}
                   </td>
                 </tr>
               </>
@@ -210,25 +293,35 @@ export const DdoTaxStatementView: React.FC<TaxStatementProps> = ({
           </tbody>
         </table>
 
-        {/* Declaration & Signature Boxes */}
-        <div className="mt-8 border-t border-slate-400 pt-3 text-xs text-slate-700 space-y-4">
-          <div className="bg-slate-50 p-2.5 rounded border border-slate-200 text-[11px] leading-relaxed">
-            <strong>कर्मचारी घोषणा (Self Declaration):</strong> मैं प्रमाणित करता/करती हूँ कि इस विवरण पत्र में दर्शायी गई आय एवं कटौतियों की समस्त प्रविष्टियां मेरे सर्वोत्तम ज्ञान और विश्वास के अनुसार सत्य, पूर्ण एवं सही हैं। मैंने वित्तीय वर्ष {profile.financialYear} हेतु आधिकारिक रूप से <strong>{isOld ? 'पुरानी कर व्यवस्था (Old Regime)' : 'नई कर व्यवस्था (New Regime)'}</strong> का चयन किया है।
+        {/* HRA & Required Receipts Info Box (Cleanly positioned on the same page) */}
+        {isOld && (
+          <div className="bg-amber-50/70 border border-amber-300 p-2 rounded mb-2 text-[10px] leading-tight text-amber-950">
+            <div className="font-bold flex items-center gap-1 text-amber-900 mb-0.5">
+              <span>🏠</span>
+              <span>मकान किराया छूट (HRA Exemption) एवं रसीद आवश्यकता (Section 10(13A)):</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                • 12 माह में प्राप्त HRA: <strong>₹{totalHRA12M}</strong><br />
+                • बेसिक + DA का 10%: <strong>₹{Math.round(0.10 * (totalBasic12M + totalDA12M))}</strong>
+              </div>
+              <div>
+                • छूट योग्य HRA राशि: <strong className="text-emerald-800">₹{compResult.calculatedHraExemption}</strong><br />
+                • <strong>आवश्यक किराया रसीद:</strong> पूर्ण छूट हेतु वार्षिक <strong>₹{compResult.minRentReceiptRequired}</strong> (अर्थात ₹{Math.round(compResult.minRentReceiptRequired / 12)} प्रतिमाह) की रसीद आवश्यक है।
+              </div>
+            </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-6">
-            <div className="text-center">
-              <p className="text-[11px] text-slate-500">स्थान व दिनांक:</p>
-              <div className="mt-8 border-t border-slate-400 pt-1 font-bold">हस्ताक्षर करदाता कर्मचारी</div>
-            </div>
-            <div className="text-center">
-              <p className="text-[11px] text-slate-500">दस्तावेज सत्यापन:</p>
-              <div className="mt-8 border-t border-slate-400 pt-1 font-bold">हस्ताक्षर बिल प्रभारी / लिपिक</div>
-            </div>
-            <div className="text-center">
-              <p className="text-[11px] text-slate-500">कार्यालय स्वीकृति:</p>
-              <div className="mt-8 border-t border-slate-400 pt-1 font-bold">हस्ताक्षर मय मोहर DDO</div>
-            </div>
+        {/* Signatures and Verification Block (Fixed at bottom for 1-Page A4) */}
+        <div className="mt-3 pt-2 border-t border-slate-400 grid grid-cols-2 gap-8 text-[11px] text-slate-800">
+          <div className="text-center">
+            <p className="font-bold">Signature of Employee</p>
+            <p className="text-[10px] text-slate-500">({profile.empName || 'Nagji Yadav'})</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold">Signature of DDO (with Seal)</p>
+            <p className="text-[10px] text-slate-500">({profile.ddoName || 'JEEVRAJ PARMAR'})</p>
           </div>
         </div>
       </div>

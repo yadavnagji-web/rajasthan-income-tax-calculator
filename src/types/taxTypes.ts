@@ -7,6 +7,8 @@ export interface MonthlyPayRecord {
   daAmount: number;
   hraRate: number;
   hraAmount: number;
+  splPay: number;
+  ccaAmount: number;
   daArrear: number;
   bonus: number;
   plSurrender: number;
@@ -14,13 +16,18 @@ export interface MonthlyPayRecord {
   grossSalary: number;
   // Deductions
   gpfAmount: number;
+  gpfLoan: number;
   siAmount: number;
+  siLoan: number;
   rghsAmount: number;
   gisAmount: number;
+  licSalary: number;
   itTdsAmount: number;
+  hitkariNidhi: number;
   otherDeductions: number;
   totalDeductions: number;
   netPayable: number;
+  billNoDate?: string;
 }
 
 export interface EmployeeProfile {
@@ -32,11 +39,14 @@ export interface EmployeeProfile {
   siNumber: string;
   ddoName: string;
   officeTan: string;
+  bankAccount: string;
+  mobileNo: string;
   payLevel: string;
   currentBasic: number;
   financialYear: '2024-25' | '2025-26';
   assessmentYear: '2025-26' | '2026-27';
-  cityCategory: 'Y' | 'Z'; // Y = 16% (Jaipur, Jodhpur, Kota etc), Z = 8% (Other Rajasthan)
+  cityCategory: 'Y' | 'Z'; // Y = 16% (Jaipur etc), Z = 8% / 10% (Other)
+  currentHraRate: number; // e.g. 0.08, 0.10, 0.16
   isSeniorCitizen: boolean;
   // Disability
   isDivyangSelf: boolean;
@@ -46,24 +56,54 @@ export interface EmployeeProfile {
 }
 
 export interface TaxDeductionsOld {
+  // HRA Exemption Sec 10(13A)
+  actualRentPaid12M: number;
+  hraExemptionClaimed: number;
+  // Sec 16
+  sec16ii_Entertainment: number;
+  sec16iii_ProfessionalTax: number;
+  // House Property
+  incomeFromHouseProperty: number;
+  sec24b_HomeLoanInterest: number;
+  municipalTaxPaid: number;
+  // Other Income
+  bankSavingInterest: number;
+  fdOtherInterest: number;
+  otherIncomeSources: number;
+  // Sec 80C
   sec80C_LicPli: number;
   sec80C_PpfSsy: number;
   sec80C_TuitionFee: number;
   sec80C_HomeLoanPrincipal: number;
   sec80C_NscElssFd: number;
+  sec80C_OtherItems: number;
+  // Sec 80CCD
+  sec80CCD1_GovtPensionEmp: number;
+  sec80CCD2_EmployerNPS: number;
   sec80CCD1B_NpsAdditional: number;
+  sec80CCC_PensionPlan: number;
+  // Sec 80D
   sec80D_MediclaimSelf: number;
   sec80D_MediclaimParents: number;
   sec80D_ParentsSenior: boolean;
-  sec24b_HomeLoanInterest: number;
+  // Disability
+  sec80DDB_MedicalTreatment: number;
+  // Education Loan & Donations
   sec80E_EduLoanInterest: number;
   sec80G_Donations: number;
-  sec80DDB_MedicalTreatment: number;
+  sec80GGC_PoliticalDonation: number;
+  // Savings Interest Rebate
+  sec80TTA_InterestRebate: number;
+  sec80TTB_SeniorInterestRebate: number;
+  sec89_ReliefArrears: number;
   otherDeductionsChapVIA: number;
 }
 
 export interface TaxComparisonResult {
   grossTotalIncome: number;
+  // HRA Exemption Calculated
+  calculatedHraExemption: number;
+  minRentReceiptRequired: number; // minimum rent required to claim this HRA exemption
   // New Regime
   new_standardDeduction: number;
   new_taxableIncome: number;
@@ -97,7 +137,35 @@ export interface TaxComparisonResult {
   savingSuggestion: string;
 }
 
-// Calculate New Regime Tax (FY 2024-25 / 2025-26 Slabs)
+// HRA Exemption Calculator under Section 10(13A)
+export function calculateHraExemption(
+  basicTotal: number,
+  daTotal: number,
+  hraTotal: number,
+  actualRentPaid: number,
+  isMetro: boolean = false
+): { exemptHra: number; taxableHra: number; minRentNeededForFullHra: number } {
+  const salaryForHra = basicTotal + daTotal;
+  const metroFactor = isMetro ? 0.50 : 0.40;
+  
+  // 1. Actual HRA received
+  const condition1 = hraTotal;
+  // 2. Rent paid minus 10% of salary
+  const condition2 = Math.max(0, actualRentPaid - 0.10 * salaryForHra);
+  // 3. 40% (or 50%) of salary
+  const condition3 = metroFactor * salaryForHra;
+
+  const exemptHra = Math.round(Math.min(condition1, condition2, condition3));
+  const taxableHra = Math.max(0, hraTotal - exemptHra);
+
+  // Minimum rent needed to claim 100% of received HRA:
+  // Rent - 10% of salary = HRA => Rent = HRA + 10% of salary
+  const minRentNeededForFullHra = Math.round(hraTotal + (0.10 * salaryForHra));
+
+  return { exemptHra, taxableHra, minRentNeededForFullHra };
+}
+
+// Calculate New Regime Tax (FY 2024-25 / AY 2025-26 Slabs)
 export function calculateNewRegimeTax(taxableIncome: number): {
   taxBeforeRebate: number;
   rebate87A: number;
@@ -125,7 +193,7 @@ export function calculateNewRegimeTax(taxableIncome: number): {
   if (taxableIncome <= 700000) {
     rebate87A = Math.min(tax, 25000);
   } else {
-    // Marginal relief under Section 87A in new regime for income marginally above 7 lakh
+    // Marginal relief under Section 87A
     const excessIncome = taxableIncome - 700000;
     if (tax > excessIncome) {
       rebate87A = tax - excessIncome;
@@ -145,7 +213,7 @@ export function calculateNewRegimeTax(taxableIncome: number): {
   };
 }
 
-// Calculate Old Regime Tax
+// Calculate Old Regime Tax (FY 2024-25 / AY 2025-26 Slabs)
 export function calculateOldRegimeTax(taxableIncome: number, isSeniorCitizen: boolean = false): {
   taxBeforeRebate: number;
   rebate87A: number;
@@ -187,6 +255,9 @@ export function calculateOldRegimeTax(taxableIncome: number, isSeniorCitizen: bo
 
 // Comprehensive Tax Comparison Function
 export function computeTaxComparison(
+  basicTotal: number,
+  daTotal: number,
+  hraTotal: number,
   grossTotalIncome: number,
   profile: EmployeeProfile,
   deductionsOld: TaxDeductionsOld,
@@ -194,8 +265,18 @@ export function computeTaxComparison(
   annualSi: number,
   annualRghs: number
 ): TaxComparisonResult {
+  // HRA Exemption
+  const isMetro = profile.cityCategory === 'Y';
+  const hraCalc = calculateHraExemption(
+    basicTotal,
+    daTotal,
+    hraTotal,
+    deductionsOld.actualRentPaid12M || 0,
+    isMetro
+  );
+
   // --- NEW REGIME ---
-  const new_standardDeduction = 75000; // Increased to 75,000
+  const new_standardDeduction = 75000;
   const new_taxableIncome = Math.max(0, grossTotalIncome - new_standardDeduction);
   const newCalc = calculateNewRegimeTax(new_taxableIncome);
 
@@ -208,7 +289,8 @@ export function computeTaxComparison(
     (deductionsOld.sec80C_PpfSsy || 0) +
     (deductionsOld.sec80C_TuitionFee || 0) +
     (deductionsOld.sec80C_HomeLoanPrincipal || 0) +
-    (deductionsOld.sec80C_NscElssFd || 0);
+    (deductionsOld.sec80C_NscElssFd || 0) +
+    (deductionsOld.sec80C_OtherItems || 0);
   
   const sec80C_rawTotal = annualGpf + annualSi + sec80C_others;
   const old_sec80C_totalAllowed = Math.min(150000, sec80C_rawTotal);
@@ -240,11 +322,18 @@ export function computeTaxComparison(
     old_sec80DD_dependent = profile.divyangSeverityDependent === '80plus' ? 125000 : 75000;
   }
 
+  // Savings interest deduction (80TTA / 80TTB)
+  const allowed80TTA = profile.isSeniorCitizen
+    ? Math.min(50000, deductionsOld.bankSavingInterest + deductionsOld.fdOtherInterest)
+    : Math.min(10000, deductionsOld.bankSavingInterest);
+
   // Other Deductions
   const old_otherDeductions = 
     (deductionsOld.sec80E_EduLoanInterest || 0) +
     (deductionsOld.sec80G_Donations || 0) +
+    (deductionsOld.sec80GGC_PoliticalDonation || 0) +
     (deductionsOld.sec80DDB_MedicalTreatment || 0) +
+    allowed80TTA +
     (deductionsOld.otherDeductionsChapVIA || 0);
 
   // Total Chapter VI-A Deductions
@@ -256,8 +345,10 @@ export function computeTaxComparison(
     old_sec80DD_dependent +
     old_otherDeductions;
 
+  // Income before deductions (Gross minus HRA exempt)
+  const salaryAfterHra = Math.max(0, grossTotalIncome - hraCalc.exemptHra);
   const old_totalDeductions = old_standardDeduction + old_sec24b_homeLoan + totalChapterVIA;
-  const old_taxableIncome = Math.max(0, grossTotalIncome - old_totalDeductions);
+  const old_taxableIncome = Math.max(0, salaryAfterHra - old_totalDeductions);
   const oldCalc = calculateOldRegimeTax(old_taxableIncome, profile.isSeniorCitizen);
 
   // Comparison
@@ -270,14 +361,16 @@ export function computeTaxComparison(
     suggestion = `आपको नई कर व्यवस्था (New Tax Regime) चुननी चाहिए। इसमें आपको ₹${diff.toLocaleString('en-IN')} का शुद्ध लाभ होगा!`;
   } else if (oldCalc.totalTax < newCalc.totalTax) {
     betterRegime = 'OLD';
-    suggestion = `आपको पुरानी कर व्यवस्था (Old Tax Regime) चुननी चाहिए। आपकी कटौतियों (80C, 80D, होम लोन आदि) के कारण आपको ₹${diff.toLocaleString('en-IN')} का फायदा होगा!`;
+    suggestion = `आपको पुरानी कर व्यवस्था (Old Tax Regime) चुननी चाहिए। आपकी कटौतियों के कारण आपको ₹${diff.toLocaleString('en-IN')} का शुद्ध लाभ होगा!`;
   } else {
     betterRegime = 'EQUAL';
-    suggestion = `दोनों कर व्यवस्थाओं में आपका देय आयकर शून्य अथवा समान (₹${newCalc.totalTax.toLocaleString('en-IN')}) है। आप बिना किसी रसीद की झंझट के New Regime चुन सकते हैं।`;
+    suggestion = `दोनों कर व्यवस्थाओं में आपका देय आयकर शून्य अथवा समान (₹${newCalc.totalTax.toLocaleString('en-IN')}) है। आप बिना रसीद की झंझट के New Regime चुन सकते हैं।`;
   }
 
   return {
     grossTotalIncome,
+    calculatedHraExemption: hraCalc.exemptHra,
+    minRentReceiptRequired: hraCalc.minRentNeededForFullHra,
     // New
     new_standardDeduction,
     new_taxableIncome,
