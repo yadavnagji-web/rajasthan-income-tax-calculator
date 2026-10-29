@@ -9,8 +9,6 @@ import {
   DEFAULT_EXCEL_PROFILE, 
   DEFAULT_EXCEL_DEDUCTIONS, 
   DEFAULT_EXCEL_RECORDS,
-  DEMO_EXCEL_PROFILE,
-  DEMO_EXCEL_DEDUCTIONS,
   BLANK_PROFILE,
   BLANK_DEDUCTIONS
 } from './data/defaultExcelData';
@@ -84,15 +82,6 @@ export function App() {
     setGisAmount(0);
     setSiMonthly(0);
     setRecords(generateRajasthanGa55Records(BLANK_PROFILE, 0, 0));
-  };
-
-  // Load Verified Sample Demo Dataset (Nagji Yadav Excel Case)
-  const handleLoadDemoData = () => {
-    setProfile(DEMO_EXCEL_PROFILE);
-    setDeductionsOld(DEMO_EXCEL_DEDUCTIONS);
-    setGisAmount(700);
-    setSiMonthly(5000);
-    setRecords(generateRajasthanGa55Records(DEMO_EXCEL_PROFILE, 700, 5000));
   };
 
   // Live active documents counter for Checklist
@@ -178,21 +167,12 @@ export function App() {
           {/* Quick Header Buttons & Financial Year Selector */}
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handleLoadDemoData}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold transition-all shadow-sm"
-              title="परीक्षण हेतु नागजी यादव का सत्यापित एक्सेल डेमो डेटा लोड करें"
-            >
-              <span>📋</span>
-              <span>डेमो डेटा</span>
-            </button>
-
-            <button
               onClick={handleResetRecords}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all border border-slate-700"
-              title="प्रोडक्शन हेतु सारा डेटा खाली करें"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all border border-slate-700 shadow-sm"
+              title="फॉर्म पूरी तरह खाली करें"
             >
               <span>🧹</span>
-              <span>खाली करें</span>
+              <span>फॉर्म रीसेट करें</span>
             </button>
 
             <div className="hidden sm:flex items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
