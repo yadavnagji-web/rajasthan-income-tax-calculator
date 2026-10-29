@@ -5,7 +5,11 @@ import type {
   TaxDeductionsOld 
 } from './types/taxTypes';
 import { computeTaxComparison } from './types/taxTypes';
-import { FINANCIAL_MONTHS, getRajasthanGpfMonthly, getRajasthanSiSlab, getRajasthanRghsMonthly } from './data/rajasthanPayData';
+import { 
+  DEFAULT_EXCEL_PROFILE, 
+  DEFAULT_EXCEL_DEDUCTIONS, 
+  DEFAULT_EXCEL_RECORDS 
+} from './data/defaultExcelData';
 import { CalculatorView } from './components/CalculatorView';
 import { Ga55LedgerView } from './components/Ga55LedgerView';
 import { DdoTaxStatementView } from './components/DdoTaxStatementView';
@@ -15,118 +19,14 @@ import { Calculator, FileSpreadsheet, FileText, BookOpen, Share2, RotateCcw, Shi
 export function App() {
   const [activeTab, setActiveTab] = useState<'calculator' | 'ga55' | 'ddoStatement' | 'rules'>('calculator');
 
-  // Employee Profile initialized with Rajasthan defaults
-  const [profile, setProfile] = useState<EmployeeProfile>({
-    empName: 'Nagji Yadav',
-    designation: 'TEACHER',
-    schoolName: 'Govt.Praveshika Sanskrit School kunwa',
-    panNumber: 'AHHPY4147Q',
-    pranNumber: '1100XXXXXXXX',
-    siNumber: 'RJ-SI-XXXXXX',
-    ddoName: 'JEEVRAJ PARMAR',
-    officeTan: 'JDHG20338D',
-    bankAccount: '15000100003153',
-    mobileNo: '9982151938',
-    payLevel: 'L-11',
-    currentBasic: 47900,
-    financialYear: '2024-25',
-    assessmentYear: '2025-26',
-    cityCategory: 'Z',
-    currentHraRate: 9,
-    isSeniorCitizen: false,
-    isDivyangSelf: false,
-    divyangSeveritySelf: '40to79',
-    hasDivyangDependent: false,
-    divyangSeverityDependent: '40to79'
-  });
+  // Load exact default Excel Master Profile
+  const [profile, setProfile] = useState<EmployeeProfile>(DEFAULT_EXCEL_PROFILE);
 
-  // Old Regime Deductions
-  const [deductionsOld, setDeductionsOld] = useState<TaxDeductionsOld>({
-    actualRentPaid12M: 53000,
-    hraExemptionClaimed: 0,
-    sec16ii_Entertainment: 0,
-    sec16iii_ProfessionalTax: 0,
-    incomeFromHouseProperty: 0,
-    sec24b_HomeLoanInterest: 200000,
-    municipalTaxPaid: 0,
-    bankSavingInterest: 0,
-    fdOtherInterest: 0,
-    otherIncomeSources: 0,
-    sec80C_LicPli: 0,
-    sec80C_PpfSsy: 0,
-    sec80C_TuitionFee: 0,
-    sec80C_HomeLoanPrincipal: 50000,
-    sec80C_NscElssFd: 0,
-    sec80C_OtherItems: 0,
-    sec80CCD1_GovtPensionEmp: 0,
-    sec80CCD2_EmployerNPS: 0,
-    sec80CCD1B_NpsAdditional: 0,
-    sec80CCC_PensionPlan: 0,
-    sec80D_MediclaimSelf: 0,
-    sec80D_MediclaimParents: 0,
-    sec80D_ParentsSenior: false,
-    sec80DDB_MedicalTreatment: 0,
-    sec80E_EduLoanInterest: 0,
-    sec80G_Donations: 0,
-    sec80GGC_PoliticalDonation: 0,
-    sec80TTA_InterestRebate: 0,
-    sec80TTB_SeniorInterestRebate: 0,
-    sec89_ReliefArrears: 0,
-    otherDeductionsChapVIA: 0
-  });
+  // Load exact default Excel Deductions
+  const [deductionsOld, setDeductionsOld] = useState<TaxDeductionsOld>(DEFAULT_EXCEL_DEDUCTIONS);
 
-  // Reset Records Helper
-  const generateInitialRecords = (basic: number) => {
-    const defaultSi = 5000;
-    const defaultRghs = getRajasthanRghsMonthly(basic);
-    const defaultGpf = 2850;
-    const hraPercent = 9;
-
-    return FINANCIAL_MONTHS.map((m, idx) => {
-      // Step increment in July if teacher (from 47900 to 49300)
-      const curBasic = idx >= 4 ? 49300 : basic;
-      const daAmount = Math.round((curBasic * m.daPercent) / 100);
-      const hraAmount = Math.round((curBasic * (idx >= 8 ? 10 : hraPercent)) / 100);
-      const gis = m.key === 'apr' ? 700 : 0;
-      const bonus = m.key === 'oct' ? 6774 : 0;
-      const daArrear = m.key === 'oct' ? 5916 : 0;
-      const gross = curBasic + daAmount + hraAmount + bonus + daArrear;
-      const gpfTotal = defaultGpf + (m.key === 'oct' ? 5916 + 1694 : 0);
-      const siTotal = idx >= 7 ? 10000 : defaultSi;
-      const totalDed = gpfTotal + siTotal + defaultRghs + gis;
-
-      return {
-        monthName: m.name,
-        monthKey: m.key,
-        basicPay: curBasic,
-        daRate: m.daPercent,
-        daAmount,
-        hraRate: idx >= 8 ? 10 : hraPercent,
-        hraAmount,
-        splPay: 0,
-        ccaAmount: 0,
-        daArrear,
-        bonus,
-        plSurrender: 0,
-        otherAllowances: 0,
-        grossSalary: gross,
-        gpfAmount: gpfTotal,
-        gpfLoan: 0,
-        siAmount: siTotal,
-        siLoan: 0,
-        rghsAmount: defaultRghs,
-        gisAmount: gis,
-        licSalary: 0,
-        itTdsAmount: 0,
-        hitkariNidhi: 0,
-        otherDeductions: 0,
-        totalDeductions: totalDed,
-        netPayable: gross - totalDed
-      };
-    });
-  };
-
-  const [records, setRecords] = useState<MonthlyPayRecord[]>(() => generateInitialRecords(47900));
+  // Load exact default Excel 12-month records + Arrear + Bonus
+  const [records, setRecords] = useState<MonthlyPayRecord[]>(DEFAULT_EXCEL_RECORDS);
 
   // Handler for manual cell edits in GA-55
   const handleUpdateRecord = (index: number, field: keyof MonthlyPayRecord, value: number) => {
@@ -134,7 +34,6 @@ export function App() {
       const updated = [...prev];
       const r = { ...updated[index], [field]: value };
       
-      // Auto re-compute gross and deductions
       const gross = (r.basicPay || 0) + (r.daAmount || 0) + (r.hraAmount || 0) + (r.splPay || 0) + (r.ccaAmount || 0) + (r.bonus || 0) + (r.daArrear || 0) + (r.plSurrender || 0) + (r.otherAllowances || 0);
       const totalDed = (r.gpfAmount || 0) + (r.gpfLoan || 0) + (r.siAmount || 0) + (r.siLoan || 0) + (r.rghsAmount || 0) + (r.gisAmount || 0) + (r.licSalary || 0) + (r.itTdsAmount || 0) + (r.hitkariNidhi || 0) + (r.otherDeductions || 0);
       
@@ -148,7 +47,9 @@ export function App() {
   };
 
   const handleResetRecords = () => {
-    setRecords(generateInitialRecords(profile.currentBasic));
+    setRecords(DEFAULT_EXCEL_RECORDS);
+    setProfile(DEFAULT_EXCEL_PROFILE);
+    setDeductionsOld(DEFAULT_EXCEL_DEDUCTIONS);
   };
 
   // Annual Totals from records
@@ -160,7 +61,7 @@ export function App() {
   const annualSi = useMemo(() => records.reduce((s, r) => s + (r.siAmount || 0), 0), [records]);
   const annualRghs = useMemo(() => records.reduce((s, r) => s + (r.rghsAmount || 0), 0), [records]);
 
-  // Comparison Results
+  // Comparison Results (matching Excel exactly)
   const compResult = useMemo(() => {
     return computeTaxComparison(
       totalBasic12M,
@@ -176,8 +77,8 @@ export function App() {
   }, [totalBasic12M, totalDA12M, totalHRA12M, annualGross, profile, deductionsOld, annualGpf, annualSi, annualRghs]);
 
   const handleResetForm = () => {
-    if (window.confirm('क्या आप फॉर्म रीसेट करके नया हिसाब लगाना चाहते हैं?')) {
-      window.location.reload();
+    if (window.confirm('क्या आप फॉर्म रीसेट करके मूल एक्सेल डेटा पर लौटना चाहते हैं?')) {
+      handleResetRecords();
     }
   };
 
@@ -198,14 +99,14 @@ export function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-extrabold text-sm md:text-base tracking-tight text-white">
-                  राजस्थान कार्मिक आयकर कैलकुलेटर (FY 2024-25)
+                  राजस्थान कार्मिक आयकर कैलकुलेटर (FY 2024-25 / AY 2025-26)
                 </h1>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">
-                  100% PayManager GA-55 मानक
+                  100% PayManager GA-55 एवं एक्सेल प्रमाणित
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                1 Page A4 GA-55 • 1 Page A4 DDO आयकर प्रपत्र • आवश्यक दस्तावेज चेकलिस्ट
+                1 Page GA-55 • 1 Page DDO आयकर प्रपत्र • आवश्यक दस्तावेज चेकलिस्ट
               </p>
             </div>
           </div>
@@ -223,7 +124,7 @@ export function App() {
             <button
               onClick={handleResetForm}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all border border-slate-700"
-              title="फॉर्म रीसेट करें"
+              title="डिफ़ॉल्ट एक्सेल डेटा पर रीसेट करें"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>रीसेट</span>
@@ -243,7 +144,7 @@ export function App() {
               }`}
             >
               <Calculator className="w-4 h-4" />
-              <span>1. टैक्स गणना व दस्तावेज चेकलिस्ट</span>
+              <span>1. टैक्स गणना व आवश्यक दस्तावेज चेकलिस्ट</span>
             </button>
 
             <button
@@ -267,7 +168,7 @@ export function App() {
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>3. DDO आयकर प्रपत्र (A4 Page 2)</span>
+              <span>3. DDO आयकर आगणन प्रपत्र (A4 Page 2)</span>
             </button>
 
             <button
