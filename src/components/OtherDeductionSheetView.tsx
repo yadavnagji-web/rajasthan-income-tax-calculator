@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TaxDeductionsOld, EmployeeProfile, TaxComparisonResult } from '../types/taxTypes';
-import { Percent, Shield, Home, AlertCircle, Save } from 'lucide-react';
+import { Percent, Shield, Home, AlertCircle, Save, CheckCircle2 } from 'lucide-react';
 import { LiveTaxSummaryCard } from './LiveTaxSummaryCard';
 
 interface OtherDeductionProps {
@@ -18,8 +18,15 @@ export const OtherDeductionSheetView: React.FC<OtherDeductionProps> = ({
   compResult,
   onNavigateTab
 }) => {
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
   const updateField = (field: keyof TaxDeductionsOld, val: number) => {
     setDeductions(prev => ({ ...prev, [field]: val }));
+  };
+
+  const handleSave = () => {
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   return (
@@ -36,11 +43,18 @@ export const OtherDeductionSheetView: React.FC<OtherDeductionProps> = ({
               वेतन के अतिरिक्त कटौतियां, आय / जमा राशि एवं छूट का विवरण
             </h2>
             <p className="text-xs md:text-sm text-blue-100">
-              कार्मिक: <strong>{profile.empName}</strong> ({profile.designation} {profile.payLevel}) | PAN: <strong className="font-mono">{profile.panNumber}</strong>
+              कार्मिक: <strong>{profile.empName || '(नाम दर्ज नहीं)'}</strong> ({profile.designation} {profile.payLevel}) | PAN: <strong className="font-mono">{profile.panNumber || '—'}</strong>
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleSave}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs md:text-sm font-extrabold shadow transition-all active:scale-95"
+            >
+              <Save className="w-4 h-4" />
+              <span>कटौतियां सहेजें (Save)</span>
+            </button>
             <button
               onClick={() => onNavigateTab('taxOld')}
               className="px-4 py-2 bg-white text-slate-900 rounded-xl text-xs font-bold shadow hover:bg-slate-100"
@@ -50,6 +64,13 @@ export const OtherDeductionSheetView: React.FC<OtherDeductionProps> = ({
           </div>
         </div>
       </div>
+
+      {savedSuccess && (
+        <div className="p-3 bg-emerald-100 border border-emerald-400 text-emerald-900 rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm animate-pulse">
+          <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+          <span>कटौतियां सफलतापूर्वक सुरक्षित कर ली गई हैं! आयकर गणना (Old & New Regime) और DDO प्रपत्र स्वतः अपडेट हो गए हैं।</span>
+        </div>
+      )}
 
       {/* 36-Field Form Grid (Exact 36 Points from Excel) + Live Tax Summary Card */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">

@@ -1,16 +1,34 @@
 import React, { useState } from 'react';
 import { MonthlyPayRecord, EmployeeProfile } from '../types/taxTypes';
-import { Printer, Edit3, CheckCircle2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Printer, Edit3, CheckCircle2, RotateCcw, AlertTriangle, TrendingUp, Zap, HelpCircle } from 'lucide-react';
 
 interface Ga55Props {
   profile: EmployeeProfile;
   records: MonthlyPayRecord[];
-  onUpdateRecord: (index: number, field: keyof MonthlyPayRecord, value: number) => void;
+  onUpdateRecord: (index: number, field: keyof MonthlyPayRecord, value: number | string) => void;
   onResetRecords: () => void;
 }
 
 export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdateRecord, onResetRecords }) => {
   const [isEditable, setIsEditable] = useState(false);
+  const [showDaTool, setShowDaTool] = useState(false);
+  const [daHikeRate, setDaHikeRate] = useState<number>(53);
+  const [daStartMonthIdx, setDaStartMonthIdx] = useState<number>(4); // 4 = July
+  const [daSuccessMsg, setDaSuccessMsg] = useState<string>('');
+
+  // Handle DA Hike Batch Calculation & Update
+  const handleApplyDaHike = () => {
+    let count = 0;
+    records.forEach((r, idx) => {
+      if (idx >= daStartMonthIdx && idx < 12) {
+        const newDa = Math.round((r.basicPay || 0) * (daHikeRate / 100));
+        onUpdateRecord(idx, 'daAmount', newDa);
+        count++;
+      }
+    });
+    setDaSuccessMsg(`सफलतापूर्वक ${count} माहों में DA ${daHikeRate}% दर से अपडेट कर दिया गया! सकल वेतन स्वतः बढ़ गया है।`);
+    setTimeout(() => setDaSuccessMsg(''), 4000);
+  };
 
   // Compute totals
   const totalBasic = records.reduce((s, r) => s + (r.basicPay || 0), 0);
@@ -34,8 +52,57 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
   const totalDeductions = records.reduce((s, r) => s + (r.totalDeductions || 0), 0);
   const totalNet = records.reduce((s, r) => s + (r.netPayable || 0), 0);
 
+  // Print strictly in Landscape on single A4 sheet
   const handlePrint = () => {
+    const existing = document.getElementById('print-orientation-style');
+    if (existing) existing.remove();
+
+    const style = document.createElement('style');
+    style.id = 'print-orientation-style';
+    style.innerHTML = `
+      @page {
+        size: A4 landscape !important;
+        margin: 3.5mm 4mm 3.5mm 4mm !important;
+      }
+      @media print {
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .ga55-print-wrapper {
+          width: 100% !important;
+          max-width: 100% !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        .ga55-print-wrapper table {
+          font-size: 7.2pt !important;
+          line-height: 1.05 !important;
+          width: 100% !important;
+        }
+        .ga55-print-wrapper th, .ga55-print-wrapper td {
+          padding: 1pt 1.5pt !important;
+        }
+        .ga55-print-wrapper input {
+          border: none !important;
+          background: transparent !important;
+          font-size: 7.2pt !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
     window.print();
+    setTimeout(() => {
+      const el = document.getElementById('print-orientation-style');
+      if (el) el.remove();
+    }, 1000);
   };
 
   return (
@@ -48,11 +115,24 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
             <span>GA-55 वेतन बिल एवं व्यक्तिगत कटौती लेजर (100% राजस्थान PayManager मानक)</span>
           </h2>
           <p className="text-xs text-slate-500">
-            A4 पेज पर सटीक फिटिंग • यदि पे-मैनेजर से अंतर हो तो "मैन्युअल एडिट" चालू करके कोई भी सेल बदलें
+            A4 लैंडस्केप (Landscape) 1-पेज ऑटो फिटिंग • यदि पे-मैनेजर से अंतर हो तो "मैन्युअल एडिट" से कोई भी माह/संख्या बदलें
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* DA Hike Updater Toggle Button */}
+          <button
+            onClick={() => setShowDaTool(!showDaTool)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              showDaTool 
+                ? 'bg-blue-600 text-white border-blue-700 shadow-sm' 
+                : 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>⚡ DA वृद्धि अपडेटर</span>
+          </button>
+
           <button
             onClick={() => setIsEditable(!isEditable)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
@@ -76,33 +156,112 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
 
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95"
           >
             <Printer className="w-4 h-4" />
-            <span>A4 प्रिंट / PDF सेव</span>
+            <span>A4 लैंडस्केप प्रिंट / PDF</span>
           </button>
         </div>
       </div>
+
+      {/* DA Hike Helper Box */}
+      {showDaTool && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 p-4 rounded-xl shadow-sm text-xs space-y-3 no-print animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-blue-700 font-bold" />
+              <h3 className="font-extrabold text-blue-950 text-sm">
+                DA (महंगाई भत्ता) दर वृद्धि व एकमुश्त अपडेट टूल
+              </h3>
+            </div>
+            <span className="text-[11px] text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded-full">
+              राजस्थान वित्त विभाग मानक
+            </span>
+          </div>
+
+          <p className="text-slate-700 leading-relaxed">
+            जब भी राज्य सरकार द्वारा DA बढ़ाया जाता है (उदा. 50% से 53% या 54%), तो नीचे लागू होने वाला माह चुनें और नई DA दर दर्ज करके <strong>"DA अपडेट करें"</strong> पर क्लिक करें। चुने गए माह से फरवरी तक का DA और सकल वेतन तुरंत लाइव अपडेट हो जाएगा।
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end bg-white p-3 rounded-lg border border-blue-200">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">1. किस माह से लागू करें :</label>
+              <select
+                value={daStartMonthIdx}
+                onChange={(e) => setDaStartMonthIdx(Number(e.target.value))}
+                className="w-full p-2 bg-slate-50 border border-slate-300 rounded font-semibold text-xs"
+              >
+                <option value={4}>जुलाई से (July - फरवरी तक)</option>
+                <option value={10}>जनवरी से (January - फरवरी तक)</option>
+                <option value={0}>पूरे वर्ष (मार्च से फरवरी तक)</option>
+                <option value={7}>अक्टूबर से (October - फरवरी तक)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">2. नई DA दर (%) :</label>
+              <input
+                type="number"
+                value={daHikeRate}
+                onChange={(e) => setDaHikeRate(Number(e.target.value))}
+                className="w-full p-2 bg-blue-50/70 border border-blue-300 rounded font-mono font-bold text-sm text-blue-950"
+                placeholder="उदा: 53"
+              />
+            </div>
+
+            <div className="flex gap-1.5">
+              {[50, 53, 54, 55].map((rate) => (
+                <button
+                  key={rate}
+                  type="button"
+                  onClick={() => setDaHikeRate(rate)}
+                  className={`flex-1 py-2 text-xs font-bold rounded border ${daHikeRate === rate ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                >
+                  {rate}%
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={handleApplyDaHike}
+                className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 text-xs"
+              >
+                <Zap className="w-4 h-4" />
+                <span>DA अपडेट करें ➔</span>
+              </button>
+            </div>
+          </div>
+
+          {daSuccessMsg && (
+            <div className="p-2.5 bg-emerald-100 border border-emerald-400 text-emerald-900 rounded-lg font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+              <span>{daSuccessMsg}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {isEditable && (
         <div className="bg-amber-50 border border-amber-300 p-2.5 rounded-lg text-xs text-amber-900 flex items-center gap-2 no-print">
           <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
           <span>
-            <strong>एडिट मोड सक्रिय:</strong> आप नीचे टेबल के किसी भी सेल पर क्लिक करके सीधे अपनी संख्या टाइप कर सकते हैं। सकल योग और शुद्ध वेतन अपने आप अपडेट होगा।
+            <strong>एडिट मोड सक्रिय:</strong> आप नीचे टेबल के किसी भी सेल (माह का नाम सहित) पर क्लिक करके सीधे अपनी संख्या या नाम टाइप कर सकते हैं। सकल योग और शुद्ध वेतन अपने आप अपडेट होगा।
           </span>
         </div>
       )}
 
-      {/* SINGLE A4 PRINTABLE CONTAINER */}
-      <div className="bg-white p-4 md:p-6 rounded-xl border border-slate-300 shadow-sm text-slate-900 a4-page-container">
+      {/* SINGLE A4 PRINTABLE CONTAINER (LANDSCAPE FIT) */}
+      <div className="bg-white p-3 md:p-5 rounded-xl border border-slate-300 shadow-sm text-slate-900 ga55-print-wrapper a4-page-container">
         {/* Header Block */}
         <div className="text-center border-b-2 border-slate-800 pb-2 mb-2">
-          <h1 className="text-base md:text-lg font-extrabold uppercase tracking-wide text-slate-900">
-            {profile.schoolName || 'Office of the Govt. Higher Secondary School'}
+          <h1 className="text-sm md:text-base font-extrabold uppercase tracking-wide text-slate-900">
+            {profile.schoolName || 'कार्यालय का नाम / विद्यालय का नाम'}
           </h1>
-          <h2 className="text-xs md:text-sm font-bold text-slate-700 uppercase">
-            Salary and Deduction Detail for FY : {profile.financialYear} (GA-55)
-          </h2>
+          <p className="text-xs font-bold text-slate-700">
+            GA-55 व्यक्तिगत वेतन बिल एवं कटौती विवरणिका (Financial Year: {profile.financialYear} • Assessment Year: {profile.assessmentYear})
+          </p>
         </div>
 
         {/* Employee Summary Info Bar */}
@@ -149,7 +308,16 @@ export const Ga55LedgerView: React.FC<Ga55Props> = ({ profile, records, onUpdate
                     className={`text-right hover:bg-slate-50 ${isArrearRow ? 'bg-amber-50/40 font-medium' : ''}`}
                   >
                     <td className={`border border-slate-400 px-1 py-0.5 text-left whitespace-pre-line leading-tight ${isArrearRow ? 'font-bold text-amber-950 text-[9.5px]' : 'font-medium'}`}>
-                      {r.monthName}
+                      {isEditable ? (
+                        <input
+                          type="text"
+                          value={r.monthName}
+                          onChange={(e) => onUpdateRecord(idx, 'monthName', e.target.value)}
+                          className="w-full text-left bg-amber-50 px-1 py-0.5 font-bold text-[9px] border border-amber-300 rounded focus:ring-1 focus:ring-amber-500"
+                        />
+                      ) : (
+                        r.monthName
+                      )}
                     </td>
                     
                     {/* Basic */}

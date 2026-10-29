@@ -281,17 +281,28 @@ export const MasterDataView: React.FC<MasterDataProps> = ({
 
                   <div>
                     <label className="block text-slate-700 mb-1 font-semibold">
-                      मार्च {startYear} का मूल वेतन (Basic) :
+                      मार्च {startYear} का मूल वेतन (Basic Pay ₹) :
                     </label>
-                    <select
-                      value={profile.currentBasic}
-                      onChange={(e) => setProfile({ ...profile, currentBasic: Number(e.target.value) })}
-                      className="w-full p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg font-mono font-bold text-amber-950"
-                    >
-                      {(PAY_MATRIX_LEVELS[profile.payLevel] || []).map((b) => (
-                        <option key={b} value={b}>₹{b.toLocaleString('en-IN')}</option>
-                      ))}
-                    </select>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        value={profile.currentBasic || ''}
+                        onChange={(e) => setProfile({ ...profile, currentBasic: Number(e.target.value) })}
+                        placeholder="मूल वेतन टाइप करें"
+                        className="w-full p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg font-mono font-bold text-amber-950 focus:ring-2 focus:ring-amber-500"
+                      />
+                      <select
+                        value={profile.currentBasic}
+                        onChange={(e) => setProfile({ ...profile, currentBasic: Number(e.target.value) })}
+                        className="p-2 bg-slate-100 border border-slate-300 rounded-lg font-mono text-xs font-semibold text-slate-700 max-w-[130px]"
+                        title="पे-मैट्रिक्स स्लैब से चुनें"
+                      >
+                        <option value={0}>स्लैब चुनें</option>
+                        {(PAY_MATRIX_LEVELS[profile.payLevel] || []).map((b) => (
+                          <option key={b} value={b}>₹{b.toLocaleString('en-IN')}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -336,25 +347,38 @@ export const MasterDataView: React.FC<MasterDataProps> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-700 mb-1 font-semibold">HRA की दर (Rate of HRA) :</label>
-                    <select
-                      value={profile.currentHraRate}
-                      onChange={(e) => setProfile({ ...profile, currentHraRate: Number(e.target.value) })}
-                      className="w-full p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg font-medium"
-                    >
-                      <option value={9}>0.09 (9% - Z श्रेणी पूर्व)</option>
-                      <option value={10}>0.10 (10% - Z श्रेणी संशोधित)</option>
-                      <option value={16}>0.16 (16% - Y श्रेणी)</option>
-                      <option value={18}>0.18 (18% - Y श्रेणी संशोधित)</option>
-                    </select>
+                    <label className="block text-slate-700 mb-1 font-semibold">HRA की दर % (Rate of HRA) :</label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        value={profile.currentHraRate || ''}
+                        onChange={(e) => setProfile({ ...profile, currentHraRate: Number(e.target.value) })}
+                        placeholder="HRA % दर्ज करें"
+                        className="w-full p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg font-mono font-bold text-amber-950"
+                      />
+                      <select
+                        value={profile.currentHraRate}
+                        onChange={(e) => setProfile({ ...profile, currentHraRate: Number(e.target.value) })}
+                        className="p-2 bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 max-w-[130px]"
+                        title="मानक HRA चुनें"
+                      >
+                        <option value={0}>0% (शासकीय आवास)</option>
+                        <option value={9}>9% (Z पूर्व)</option>
+                        <option value={10}>10% (Z संशोधित)</option>
+                        <option value={16}>16% (Y पूर्व)</option>
+                        <option value={18}>18% (Y संशोधित)</option>
+                        <option value={20}>20% (X श्रेणी)</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-slate-700 mb-1 font-semibold">राज्य बीमा (SI) मासिक कटौती :</label>
                     <input
                       type="number"
-                      value={siMonthly}
+                      value={siMonthly || ''}
                       onChange={(e) => setSiMonthly(Number(e.target.value))}
+                      placeholder="0"
                       className="w-full p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg font-mono font-bold"
                     />
                   </div>
@@ -364,16 +388,26 @@ export const MasterDataView: React.FC<MasterDataProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block text-slate-700 mb-1 font-semibold">समूह दुर्घटना बीमा (GIS) प्रीमियम :</label>
-                    <select
-                      value={gisAmount}
-                      onChange={(e) => setGisAmount(Number(e.target.value))}
-                      className="w-full p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg font-medium"
-                    >
-                      <option value={0}>0 (कोई कटौती नहीं)</option>
-                      <option value={700}>700 (स्लैब ₹700 - अप्रैल माह)</option>
-                      <option value={1400}>1400 (स्लैब ₹1400)</option>
-                      <option value={2100}>2100 (स्लैब ₹2100)</option>
-                    </select>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        value={gisAmount || ''}
+                        onChange={(e) => setGisAmount(Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg font-mono font-bold text-amber-950"
+                      />
+                      <select
+                        value={gisAmount}
+                        onChange={(e) => setGisAmount(Number(e.target.value))}
+                        className="p-2 bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 max-w-[110px]"
+                        title="मानक GIS स्लैब चुनें"
+                      >
+                        <option value={0}>₹0</option>
+                        <option value={700}>₹700</option>
+                        <option value={1400}>₹1400</option>
+                        <option value={2100}>₹2100</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div>

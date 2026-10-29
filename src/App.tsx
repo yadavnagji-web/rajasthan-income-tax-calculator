@@ -8,7 +8,11 @@ import { computeTaxComparison } from './types/taxTypes';
 import { 
   DEFAULT_EXCEL_PROFILE, 
   DEFAULT_EXCEL_DEDUCTIONS, 
-  DEFAULT_EXCEL_RECORDS 
+  DEFAULT_EXCEL_RECORDS,
+  DEMO_EXCEL_PROFILE,
+  DEMO_EXCEL_DEDUCTIONS,
+  BLANK_PROFILE,
+  BLANK_DEDUCTIONS
 } from './data/defaultExcelData';
 import { 
   getRajasthanGpfMonthly, 
@@ -50,11 +54,16 @@ export function App() {
     setRecords(newRecords);
   };
 
-  // Handler for manual cell edits in GA-55
-  const handleUpdateRecord = (index: number, field: keyof MonthlyPayRecord, value: number) => {
+  // Handler for manual cell edits in GA-55 (Supports both number & string month name)
+  const handleUpdateRecord = (index: number, field: keyof MonthlyPayRecord, value: number | string) => {
     setRecords(prev => {
       const updated = [...prev];
-      const r = { ...updated[index], [field]: value };
+      if (field === 'monthName') {
+        updated[index] = { ...updated[index], monthName: String(value) };
+        return updated;
+      }
+      const numVal = Number(value) || 0;
+      const r = { ...updated[index], [field]: numVal };
       
       const gross = (r.basicPay || 0) + (r.daAmount || 0) + (r.hraAmount || 0) + (r.splPay || 0) + (r.ccaAmount || 0) + (r.bonus || 0) + (r.daArrear || 0) + (r.plSurrender || 0) + (r.otherAllowances || 0);
       const totalDed = (r.gpfAmount || 0) + (r.gpfLoan || 0) + (r.siAmount || 0) + (r.siLoan || 0) + (r.rghsAmount || 0) + (r.gisAmount || 0) + (r.licSalary || 0) + (r.itTdsAmount || 0) + (r.hitkariNidhi || 0) + (r.otherDeductions || 0);
@@ -68,12 +77,22 @@ export function App() {
     });
   };
 
+  // Reset to 100% Blank Production State
   const handleResetRecords = () => {
-    setRecords(DEFAULT_EXCEL_RECORDS);
-    setProfile(DEFAULT_EXCEL_PROFILE);
-    setDeductionsOld(DEFAULT_EXCEL_DEDUCTIONS);
+    setProfile(BLANK_PROFILE);
+    setDeductionsOld(BLANK_DEDUCTIONS);
+    setGisAmount(0);
+    setSiMonthly(0);
+    setRecords(generateRajasthanGa55Records(BLANK_PROFILE, 0, 0));
+  };
+
+  // Load Verified Sample Demo Dataset (Nagji Yadav Excel Case)
+  const handleLoadDemoData = () => {
+    setProfile(DEMO_EXCEL_PROFILE);
+    setDeductionsOld(DEMO_EXCEL_DEDUCTIONS);
     setGisAmount(700);
     setSiMonthly(5000);
+    setRecords(generateRajasthanGa55Records(DEMO_EXCEL_PROFILE, 700, 5000));
   };
 
   // Live active documents counter for Checklist
@@ -144,20 +163,38 @@ export function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-extrabold text-sm md:text-base tracking-tight text-white">
-                  राजस्थान कार्मिक आयकर कैलकुलेटर (FY 2024-25 / AY 2025-26)
+                  राजस्थान कार्मिक आयकर कैलकुलेटर
                 </h1>
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold px-2 py-0.5 rounded-full">
-                  मास्टर एक्सेल शीट हुबहू संस्करण
+                  FY {profile.financialYear} • AY {profile.assessmentYear}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Master Data • GA-55A • Other Deductions • Computation Sheet (Old/New) • Live Checklist
+                मास्टर डेटा • GA-55A लेजर • कटौतियां • DDO गणना प्रपत्र • टैक्स सेविंग गाइड
               </p>
             </div>
           </div>
 
           {/* Quick Header Buttons & Financial Year Selector */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleLoadDemoData}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold transition-all shadow-sm"
+              title="परीक्षण हेतु नागजी यादव का सत्यापित एक्सेल डेमो डेटा लोड करें"
+            >
+              <span>📋</span>
+              <span>डेमो डेटा</span>
+            </button>
+
+            <button
+              onClick={handleResetRecords}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all border border-slate-700"
+              title="प्रोडक्शन हेतु सारा डेटा खाली करें"
+            >
+              <span>🧹</span>
+              <span>खाली करें</span>
+            </button>
+
             <div className="hidden sm:flex items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
               <span className="text-[11px] text-slate-300 font-medium">FY:</span>
               <select
@@ -186,14 +223,6 @@ export function App() {
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>शेयर</span>
-            </button>
-            <button
-              onClick={handleResetForm}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all border border-slate-700"
-              title="डिफ़ॉल्ट एक्सेल डेटा पर रीसेट करें"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>रीसेट</span>
             </button>
           </div>
         </div>
