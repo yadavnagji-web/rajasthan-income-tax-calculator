@@ -1,0 +1,16 @@
+{
+  "source": "Finance Department, Government of Rajasthan & Labour Bureau",
+  "latestDaRate": 63,
+  "previousDaRate": 60,
+  "hike": 3,
+  "isProjected": true,
+  "orderStatus": "63% प्रोजेक्टेड (घोषणा उपरांत औपचारिक आदेश प्रतीक्षित)",
+  "effectiveFrom": "1 July",
+  "cashEffectiveMonth": "December",
+  "gpfArrearMonths": ["July", "August", "September", "October"],
+  "bonusEligibleMaxLevel": 12,
+  "bonusAmount": 6774,
+  "lastSyncedDate": "30/10/2026",
+  "lastSyncedTime": "21:15",
+  "status": "Projected - Awaiting Gazetted Order"
+}
