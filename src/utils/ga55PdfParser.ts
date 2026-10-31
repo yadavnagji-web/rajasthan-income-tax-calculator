@@ -26,7 +26,12 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const strings = content.items.map((item: any) => item.str);
-    fullText += strings.join('\n') + '\n';
+    let pageText = strings.join('\n');
+    if (i > 1) {
+      pageText = pageText.replace(/RAJ IFMS 3\.0[\s\S]{0,400}?Print Date:[^\n]+/i, '');
+    }
+    pageText = pageText.replace(/Note:\s*\*[\s\S]{0,300}?Print Date:[^\n]+/i, '');
+    fullText += pageText + '\n';
   }
 
   // 1. Header Extraction using Exact IFMS 3.0 regex patterns
@@ -119,14 +124,19 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     basic: 50800,
     da: 30480,
     hra: 5080,
+    splPay: 0,
+    cca: 0,
     gpf: 2850,
+    gpfLoan: 0,
     sip: 7000,
-    rghs: 658,
     sil: 0,
-    gpfl: 0,
-    tds: 0,
+    rghs: 658,
+    gis: 0,
     lic: 0,
-    pli: 0
+    pli: 0,
+    tds: 0,
+    hitkari: 0,
+    otherDeductions: 0
   };
 
   let detectedDaRate = 60;
@@ -138,9 +148,9 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     let chunk = fullText.slice(start, end);
 
     // Clean page footers, headers and stop at summary totals
-    chunk = chunk.replace(/RAJ IFMS 3\.0[\s\S]*?Print Date:[^\n]+/gi, '');
-    chunk = chunk.replace(/Note: \* Denotes[\s\S]*?Print Date:[^\n]+/gi, '');
-    chunk = chunk.replace(/Total\s+Allowances[\s\S]*/gi, '');
+    chunk = chunk.replace(/RAJ IFMS 3\.0[\s\S]{0,400}?Print Date:[^\n]+/gi, '');
+    chunk = chunk.replace(/Note:\s*\*[\s\S]{0,300}?Print Date:[^\n]+/gi, '');
+    chunk = chunk.replace(/Total\s+Allowances[\s\S]*/gi, '').trim();
 
     const headerMatch = chunk.match(/(March|April|May|June|July|August|September|October|November|December|January|February)\s*\n\s*(\d{4})/i);
     if (!headerMatch) continue;
@@ -186,17 +196,26 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
       }
     }
 
-    // Deductions
-    const gpfMatch = chunk.match(/GPF(?:\s*2004)?\s*\n?\s*([\d,.]+)/i);
+    const splMatch = chunk.match(/(?:Spl(?:\.?\s*Pay)?|Special\s*Pay)\s*\n?\s*([\d,.]+)/i);
+    const spl = splMatch ? parseFloat(splMatch[1].replace(/,/g, '')) : 0;
+
+    const ccaMatch = chunk.match(/CCA\s*\n?\s*([\d,.]+)/i);
+    const cca = ccaMatch ? parseFloat(ccaMatch[1].replace(/,/g, '')) : 0;
+
+    const bonusMatch = chunk.match(/Bonus\s*\n?\s*([\d,.]+)/i);
+    const bonus = bonusMatch ? parseFloat(bonusMatch[1].replace(/,/g, '')) : 0;
+
+    // Deductions (Every type extracted individually)
+    const gpfMatch = chunk.match(/(?:GPF(?:\s*2004)?|PRAN)\s*\n?\s*([\d,.]+)/i);
     const gpf = gpfMatch ? parseFloat(gpfMatch[1].replace(/,/g, '')) : 0;
 
-    const gpfLoanMatch = chunk.match(/(?:GPFL|GPF\s*Loan)\s*\n?\s*([\d,.]+)/i);
+    const gpfLoanMatch = chunk.match(/(?:GPFL|GPF\s*Loan|GPF\s*ऋण)\s*\n?\s*([\d,.]+)/i);
     const gpfLoan = gpfLoanMatch ? parseFloat(gpfLoanMatch[1].replace(/,/g, '')) : 0;
 
-    const sipMatch = chunk.match(/(?:SIP|SI(?!\s*L))\s*\n?\s*([\d,.]+)/i);
+    const sipMatch = chunk.match(/(?:SIP|SI(?!\s*(?:L|Loan|ऋण)))\s*\n?\s*([\d,.]+)/i);
     const sip = sipMatch ? parseFloat(sipMatch[1].replace(/,/g, '')) : 0;
 
-    const silMatch = chunk.match(/(?:SIL|SI\s*Loan)\s*\n?\s*([\d,.]+)/i);
+    const silMatch = chunk.match(/(?:SIL|SI\s*Loan|SI\s*ऋण)\s*\n?\s*([\d,.]+)/i);
     const sil = silMatch ? parseFloat(silMatch[1].replace(/,/g, '')) : 0;
 
     const rghsMatch = chunk.match(/RGHS\s*\n?\s*([\d,.]+)/i);
@@ -214,12 +233,28 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     const pliMatch = chunk.match(/(?:PLI|Postal\s*Life)\s*\n?\s*([\d,.]+)/i);
     const pli = pliMatch ? parseFloat(pliMatch[1].replace(/,/g, '')) : 0;
 
-    const hitkariMatch = chunk.match(/(?:Hitkari|HN)\s*\n?\s*([\d,.]+)/i);
+    const hitkariMatch = chunk.match(/(?:Hitkari|HN|हितकारी)\s*\n?\s*([\d,.]+)/i);
     const hitkari = hitkariMatch ? parseFloat(hitkariMatch[1].replace(/,/g, '')) : 0;
 
-    const gross = basic + da + hra;
-    const totalDed = gpf + gpfLoan + sip + sil + rghs + gis + tds + lic + pli + hitkari;
-    const net = gross - totalDed;
+    const gross = basic + da + hra + spl + cca + bonus;
+    let knownDedSum = gpf + gpfLoan + sip + sil + rghs + gis + tds + lic + pli + hitkari;
+    let totalDed = knownDedSum;
+    let otherDed = 0;
+    let net = gross - totalDed;
+
+    // Check block tail for explicit Total Deductions and Net Amount
+    const blockTotalsMatch = chunk.match(/([\d,.]+)\s*\n\s*([\d,.]+)\s*$/);
+    if (blockTotalsMatch) {
+      const explicitDed = parseFloat(blockTotalsMatch[1].replace(/,/g, ''));
+      const explicitNet = parseFloat(blockTotalsMatch[2].replace(/,/g, ''));
+      if (!isNaN(explicitDed) && explicitDed >= knownDedSum) {
+        otherDed = Math.round((explicitDed - knownDedSum) * 100) / 100;
+        totalDed = explicitDed;
+      }
+      if (!isNaN(explicitNet)) {
+        net = explicitNet;
+      }
+    }
 
     if (billType === 'Regular') {
       drawnRegularMonths.add(`${monthNameStr.toLowerCase()}_${billYear}`);
@@ -227,14 +262,19 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
         basic: basic || lastRegular.basic,
         da: da || lastRegular.da,
         hra: hra || lastRegular.hra,
+        splPay: spl || lastRegular.splPay,
+        cca: cca || lastRegular.cca,
         gpf: gpf || lastRegular.gpf,
+        gpfLoan: gpfLoan || lastRegular.gpfLoan,
         sip: sip || lastRegular.sip,
+        sil: sil || lastRegular.sil,
         rghs: rghs || lastRegular.rghs,
-        sil: sil,
-        gpfl: gpfLoan,
-        tds: tds,
-        lic: lic,
-        pli: pli
+        gis: 0,
+        lic: lic || lastRegular.lic,
+        pli: pli || lastRegular.pli,
+        tds: tds || lastRegular.tds,
+        hitkari: hitkari || lastRegular.hitkari,
+        otherDeductions: otherDed || lastRegular.otherDeductions
       };
 
       if (basic > 0) {
@@ -265,9 +305,9 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
       basicPay: basic,
       daAmount: da,
       hraAmount: hra,
-      splPay: 0,
-      ccaAmount: 0,
-      bonus: 0,
+      splPay: spl,
+      ccaAmount: cca,
+      bonus,
       daArrear: isDaArrear ? da : 0,
       plSurrender: isSurrender ? gross : 0,
       otherAllowances: 0,
@@ -282,7 +322,7 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
       pliAmount: pli,
       itTdsAmount: tds,
       hitkariNidhi: hitkari,
-      otherDeductions: 0,
+      otherDeductions: otherDed,
       totalDeductions: totalDed,
       netPayable: net,
       billNo,
@@ -290,9 +330,8 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     });
   }
 
-  // 3. Check for Non-Estimated GA-55:
-  // If some regular months are missing (e.g. October to February),
-  // automatically create them exactly like an Estimated GA-55 does!
+  // 3. For Non-Estimated GA-55:
+  // Automatically create the missing months with all recurring allowances & deductions
   let projectedCount = 0;
   const isEstimated = (drawnRegularMonths.size === 12);
 
@@ -303,18 +342,21 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
       const basic = lastRegular.basic;
       const da = lastRegular.da;
       const hra = lastRegular.hra;
-      const gross = basic + da + hra;
+      const spl = lastRegular.splPay;
+      const cca = lastRegular.cca;
+      const gross = basic + da + hra + spl + cca;
 
       const gpf = lastRegular.gpf;
+      const gpfl = lastRegular.gpfLoan;
       const sip = lastRegular.sip;
-      const rghs = lastRegular.rghs;
       const sil = lastRegular.sil;
-      const gpfl = lastRegular.gpfl;
+      const rghs = lastRegular.rghs;
       const lic = lastRegular.lic;
       const pli = lastRegular.pli;
       const tds = lastRegular.tds;
+      const otherDed = lastRegular.otherDeductions;
 
-      const totalDed = gpf + sip + rghs + sil + gpfl + lic + pli + tds;
+      const totalDed = gpf + gpfl + sip + sil + rghs + lic + pli + tds + otherDed;
       const net = gross - totalDed;
       const billNo = `-${m.year}${m.monthNum}`;
 
@@ -325,8 +367,8 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
         basicPay: basic,
         daAmount: da,
         hraAmount: hra,
-        splPay: 0,
-        ccaAmount: 0,
+        splPay: spl,
+        ccaAmount: cca,
         bonus: 0,
         daArrear: 0,
         plSurrender: 0,
@@ -342,7 +384,7 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
         pliAmount: pli,
         itTdsAmount: tds,
         hitkariNidhi: 0,
-        otherDeductions: 0,
+        otherDeductions: otherDed,
         totalDeductions: totalDed,
         netPayable: net,
         billNo,
