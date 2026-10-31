@@ -19,7 +19,11 @@ export const Ga55UploadCard: React.FC<Ga55UploadCardProps> = ({
     empId: string;
     daPercent: number;
     hraPercent: number;
-    bonusAdded: boolean;
+    isEstimated: boolean;
+    projectedCount: number;
+    totalGross: number;
+    totalDeductions: number;
+    netAmount: number;
   } | null>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,16 +44,21 @@ export const Ga55UploadCard: React.FC<Ga55UploadCardProps> = ({
       onDataLoaded(result.profile, result.records, {
         daPercent: result.derivedDaRatePercent,
         hraPercent: result.derivedHraRatePercent,
-        bonusAdded: result.isBonusAdded
+        isEstimated: result.isEstimated,
+        projectedCount: result.projectedMonthsCount
       });
       setSuccessInfo({
         empName: result.profile.empName || 'कार्मिक',
         empId: result.profile.empId || '',
         daPercent: result.derivedDaRatePercent,
         hraPercent: result.derivedHraRatePercent,
-        bonusAdded: result.isBonusAdded
+        isEstimated: result.isEstimated,
+        projectedCount: result.projectedMonthsCount,
+        totalGross: result.totalAllowances,
+        totalDeductions: result.totalDeductions,
+        netAmount: result.netAmount
       });
-      setTimeout(() => setSuccessInfo(null), 8000);
+      setTimeout(() => setSuccessInfo(null), 10000);
     } catch (err: any) {
       console.error('Error parsing GA-55 PDF:', err);
       setErrorMessage('GA-55 PDF पढ़ने में त्रुटि हुई। कृपया सुनिश्चित करें कि यह IFMS 3.0 राजस्थान पे-मैनेजर का GA-55 है।');
@@ -72,14 +81,14 @@ export const Ga55UploadCard: React.FC<Ga55UploadCardProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-bold text-gray-900">
-                1-क्लिक GA-55 ऑटो डेटा लोड (IFMS 3.0 / PayManager)
+                GA-55 (Estimated / Non-Estimated) 1-क्लिक PDF लोड
               </h3>
               <span className="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                100% सुरक्षित • केवल ब्राउज़र में प्रोसेस
+                100% सुरक्षित • क्लाइंट-साइड विश्लेषण
               </span>
             </div>
             <p className="text-xs text-gray-600 mt-0.5">
-              अपना GA-55 PDF अपलोड करें — कार्मिक नाम, Basic, DA % व HRA % स्वतः विश्लेषित होंगे एवं पात्र स्तर (L-12 तक) में बोनस स्वतः जुड़ेगा!
+              Estimated GA-55 PDF अपलोड करें — कार्मिक नाम, Basic, DA, HRA, GPF, SI आदि का 100% सटीक विश्लेषण होगा। यदि Non-Estimated GA-55 भी अपलोड करेंगे, तो भी सिस्टम स्वतः शेष माह की गणना जोड़कर Estimated GA-55 की तरह ही परिणाम देगा।
             </p>
           </div>
         </div>
@@ -112,14 +121,21 @@ export const Ga55UploadCard: React.FC<Ga55UploadCardProps> = ({
         </div>
       )}
 
-      {/* Success Info Banner with Parsed DA & HRA */}
+      {/* Success Info Banner with Parsed GA-55 details */}
       {successInfo && (
         <div className="mt-3 p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-base">✓</span>
             <span>
-              <strong>GA-55 सफलतापूर्वक विश्लेषित!</strong> कार्मिक: <strong>{successInfo.empName}</strong> ({successInfo.empId}) • विश्लेषित DA: <strong>{successInfo.daPercent}%</strong> • HRA: <strong>{successInfo.hraPercent}%</strong>
-              {successInfo.bonusAdded && <span className="ml-1 text-emerald-800 font-semibold">• तदर्थ बोनस ₹6,774 स्वतः शामिल (संपादनीय)</span>}
+              <strong>GA-55 सफलतापूर्वक विश्लेषित!</strong> कार्मिक: <strong>{successInfo.empName}</strong> ({successInfo.empId}) •
+              सकल वेतन: <strong>₹{successInfo.totalGross.toLocaleString('en-IN')}</strong> •
+              कुल कटौती: <strong>₹{successInfo.totalDeductions.toLocaleString('en-IN')}</strong> •
+              शुद्ध देय: <strong>₹{successInfo.netAmount.toLocaleString('en-IN')}</strong>
+              {successInfo.isEstimated ? (
+                <span className="ml-1 text-emerald-700 font-semibold">• [Estimated GA-55: सभी 12 माह सीधे PDF से लोड हुए]</span>
+              ) : (
+                <span className="ml-1 text-indigo-700 font-semibold">• [Non-Estimated GA-55: IFMS 3.0 नियमानुसार शेष {successInfo.projectedCount} माह स्वतः जोड़कर Estimated GA-55 तैयार किया गया]</span>
+              )}
             </span>
           </div>
           {fileName && <span className="text-gray-500 font-mono text-[11px]">{fileName}</span>}
@@ -159,14 +175,14 @@ export const Ga55UploadCard: React.FC<Ga55UploadCardProps> = ({
             </div>
             {currentProfile.schoolName && (
               <div className="text-gray-500">
-                कार्यालय: <span className="text-gray-700 font-medium">{currentProfile.schoolName.substring(0, 36)}...</span>
+                कार्यालय: <span className="text-gray-700 font-medium">{currentProfile.schoolName.substring(0, 45)}</span>
               </div>
             )}
           </>
         ) : (
           <div className="text-gray-500 italic flex items-center gap-2">
             <span>ℹ️</span>
-            <span>GA-55 PDF अपलोड करने हेतु ऊपर <strong>'GA-55 PDF चुनें'</strong> बटन पर क्लिक करें अथवा नीचे <strong>'✏️ मैन्युअल संपादन'</strong> से सीधे प्रविष्टि करें।</span>
+            <span>GA-55 PDF अपलोड करने हेतु ऊपर <strong>'GA-55 PDF चुनें'</strong> बटन पर क्लिक करें अथवा सीधे फॉर्म में विवरण देखें।</span>
           </div>
         )}
       </div>

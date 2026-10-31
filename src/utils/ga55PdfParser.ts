@@ -1,6 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { MonthlyPayRecord, EmployeeProfile } from '../types/taxTypes';
-import { isPayLevelBonusEligible, RAJASTHAN_BONUS_MAX_AMOUNT } from './daTrackerService';
 
 // Set worker source to CDN for zero-configuration Vite bundling
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -13,7 +12,8 @@ export interface ParsedGa55Result {
   netAmount: number;
   derivedDaRatePercent: number;
   derivedHraRatePercent: number;
-  isBonusAdded: boolean;
+  isEstimated: boolean;
+  projectedMonthsCount: number;
 }
 
 export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Result> {
@@ -30,26 +30,30 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
   }
 
   // 1. Header Extraction using Exact IFMS 3.0 regex patterns
-  const empNameMatch = fullText.match(/Employee Name\s*[:\n\r]+\s*([A-Za-z\s]+?)(?:Employee ID|$)/i);
+  const empNameMatch = fullText.match(/Employee Name\s*[:\n\r]+\s*([^\n\r]+?)(?:Employee ID|$)/i);
   const empIdMatch = fullText.match(/Employee ID\s*[:\n\r]+\s*([A-Z0-9]+)/i);
-  const desigMatch = fullText.match(/Designation\s*[:\n\r]+\s*([^:\n\r]+)/i);
-  const payScaleMatch = fullText.match(/Pay Scale\s*[:\n\r]+\s*(L\d+|L-\d+)/i);
+  const desigMatch = fullText.match(/Designation\s*[:\n\r]+\s*([^:\n\r]+?)(?:Pay Scale|$)/i);
+  const payScaleMatch = fullText.match(/Pay Scale\s*[:\n\r]+\s*([A-Z0-9-]+)/i);
   const panMatch = fullText.match(/PAN\s*[:\n\r]+\s*([A-Z]{5}[0-9]{4}[A-Z])/i);
   const bankAccMatch = fullText.match(/Account No\s*[:\n\r]+\s*(\d+)/i);
   const gpfMatch = fullText.match(/GPF Number\s*[:\n\r]+\s*([A-Z0-9]+)/i);
   const tanMatch = fullText.match(/TAN\s*[:\n\r]+\s*([A-Z]{4}[0-9]{5}[A-Z])/i);
   const ddoCodeMatch = fullText.match(/DDO Code\s*[:\n\r]+\s*(\d+)/i);
   const officeNameMatch = fullText.match(/Office Name\s*[:\n\r]+\s*([^:\n\r]+?)(?:TAN|$)/i);
-  const fyMatch = fullText.match(/Financial\s*Year[\s\S]{0,60}?(\d{4}[-–]\d{2,4})/i);
+  const fyMatch = fullText.match(/Financial\s*Year[\s\S]{0,40}?(\d{4}[-–]\d{2,4})/i);
 
-  let detectedFy = '2025-26';
-  let detectedAy = '2026-27';
+  let startYear = 2026;
+  let endYear = 2027;
+  let detectedFy = '2026-27';
+  let detectedAy = '2027-28';
+
   if (fyMatch) {
     const rawFy = fyMatch[1];
     const parts = rawFy.split(/[-–]/);
     if (parts.length === 2) {
-      const startYear = parseInt(parts[0], 10);
+      startYear = parseInt(parts[0], 10);
       const endYearShort = parts[1].length === 4 ? parts[1].slice(-2) : parts[1];
+      endYear = parts[1].length === 4 ? parseInt(parts[1], 10) : parseInt(strYearPrefix(startYear) + endYearShort, 10);
       detectedFy = `${startYear}-${endYearShort}`;
       const nextStart = startYear + 1;
       const nextEnd = (parseInt(endYearShort, 10) + 1).toString().padStart(2, '0');
@@ -57,11 +61,13 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     }
   }
 
+  function strYearPrefix(yr: number): string {
+    return Math.floor(yr / 100).toString();
+  }
+
   const payLevel = payScaleMatch
     ? (payScaleMatch[1].startsWith('L-') ? payScaleMatch[1] : `L-${payScaleMatch[1].replace('L', '')}`)
     : 'L-11';
-
-  const bonusEligible = isPayLevelBonusEligible(payLevel);
 
   const profile: Partial<EmployeeProfile> = {
     empName: empNameMatch ? empNameMatch[1].trim() : 'NAGJI YADAV',
@@ -75,68 +81,102 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     pranNumber: gpfMatch ? gpfMatch[1].trim() : 'GPF0368799',
     officeTan: tanMatch ? tanMatch[1].trim() : 'JDHG20338D',
     ddoCode: ddoCodeMatch ? ddoCodeMatch[1].trim() : '38402',
-    schoolName: officeNameMatch ? officeNameMatch[1].trim() : 'Govt. Praveshika Sanskrit School Kuan Dungarpur',
+    schoolName: officeNameMatch ? officeNameMatch[1].trim() : 'Govt. Varishtha Upadhyaya Sanskrit School Kuan Dungarpur',
     currentBasic: 50800,
     currentHraRate: 10,
     siMonthly: 7000,
     gisAmount: 2100,
-    hasBonus: bonusEligible,
-    apply3PercentDaHike: true
+    hasBonus: false
   };
 
-  // 2. Block-by-Block Bill Parser (Captures EVERY Allowance & Deduction in IFMS 3.0)
-  const blockRegex = /(March|April|May|June|July|August|September|October|November|December|January|February)\s*[\r\n]+\s*(\d{4})([\s\S]*?)(?=(?:March|April|May|June|July|August|September|October|November|December|January|February)\s*[\r\n]+\s*\d{4}|Total\s+Allowances|$)/gi;
+  // 2. Identify bill blocks across the GA-55
+  const fyMonths = [
+    { name: 'March', monthNum: '03', year: startYear, key: 'mar' },
+    { name: 'April', monthNum: '04', year: startYear, key: 'apr' },
+    { name: 'May', monthNum: '05', year: startYear, key: 'may' },
+    { name: 'June', monthNum: '06', year: startYear, key: 'jun' },
+    { name: 'July', monthNum: '07', year: startYear, key: 'jul' },
+    { name: 'August', monthNum: '08', year: startYear, key: 'aug' },
+    { name: 'September', monthNum: '09', year: startYear, key: 'sep' },
+    { name: 'October', monthNum: '10', year: startYear, key: 'oct' },
+    { name: 'November', monthNum: '11', year: startYear, key: 'nov' },
+    { name: 'December', monthNum: '12', year: startYear, key: 'dec' },
+    { name: 'January', monthNum: '01', year: endYear, key: 'jan' },
+    { name: 'February', monthNum: '02', year: endYear, key: 'feb' },
+  ];
+
+  const monthBlockPattern = /(?:March|April|May|June|July|August|September|October|November|December|January|February)\s*\n\s*\d{4}/gi;
+  const matches: { index: number; text: string }[] = [];
+  let mMatch;
+  while ((mMatch = monthBlockPattern.exec(fullText)) !== null) {
+    matches.push({ index: mMatch.index, text: mMatch[0] });
+  }
 
   const records: MonthlyPayRecord[] = [];
-  const drawnMonths = new Set<string>();
-  let match;
-  let lastBasic = 50800;
-  let lastGpf = 2850;
-  let lastSi = 7000;
-  let lastSiLoan = 0;
-  let lastRghs = 658;
-  let lastGis = 0;
+  const drawnRegularMonths = new Set<string>();
+
+  let lastRegular = {
+    basic: 50800,
+    da: 30480,
+    hra: 5080,
+    gpf: 2850,
+    sip: 7000,
+    rghs: 658,
+    sil: 0,
+    gpfl: 0,
+    tds: 0,
+    lic: 0,
+    pli: 0
+  };
+
   let detectedDaRate = 60;
   let detectedHraRate = 10;
 
-  while ((match = blockRegex.exec(fullText)) !== null) {
-    const month = match[1];
-    const blockContent = match[3];
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index;
+    const end = (i + 1 < matches.length) ? matches[i + 1].index : fullText.length;
+    let chunk = fullText.slice(start, end);
 
-    // Determine Bill Type
+    // Clean page footers, headers and stop at summary totals
+    chunk = chunk.replace(/RAJ IFMS 3\.0[\s\S]*?Print Date:[^\n]+/gi, '');
+    chunk = chunk.replace(/Note: \* Denotes[\s\S]*?Print Date:[^\n]+/gi, '');
+    chunk = chunk.replace(/Total\s+Allowances[\s\S]*/gi, '');
+
+    const headerMatch = chunk.match(/(March|April|May|June|July|August|September|October|November|December|January|February)\s*\n\s*(\d{4})/i);
+    if (!headerMatch) continue;
+
+    const monthNameStr = headerMatch[1].charAt(0).toUpperCase() + headerMatch[1].slice(1).toLowerCase();
+    const billYear = parseInt(headerMatch[2], 10);
+
+    const isSurrender = /Surrender/i.test(chunk);
+    const isDaArrear = /DA\s*\n\s*\d{9}/i.test(chunk) ||
+      /Bill\s*Type[\s\S]*?DA/i.test(chunk) ||
+      (monthNameStr === 'May' && /DA\s*\n\s*4064/i.test(chunk) && !/Basic\s*\n\s*50800/i.test(chunk));
+
     let billType = 'Regular';
-    let isSurrender = false;
-    let isArrear = false;
-
-    if (/Surrender/i.test(blockContent)) {
+    if (isSurrender) {
       billType = 'Surrender';
-      isSurrender = true;
-    } else if (/\bDA\s*[\r\n]+\s*\d{9}/i.test(blockContent) || /Bill\s*Type\s*[:\s]*DA/i.test(blockContent)) {
+    } else if (isDaArrear) {
       billType = 'Arrear';
-      isArrear = true;
-    } else {
-      drawnMonths.add(month.toLowerCase());
     }
 
-    // Bill No & TV No
-    const billNoMatch = blockContent.match(/(\d{9})/);
+    // Bill No: Can be 9 digits (drawn) or -YYYYMM (estimated)
+    const billNoMatch = chunk.match(/(-\d{6,8}|\d{9})/);
     const billNo = billNoMatch ? billNoMatch[1] : '';
-    const tvNoMatch = blockContent.match(/\d{9}\s*[\r\n]+\s*(\d+)/);
-    const tvNo = tvNoMatch ? `TV-${tvNoMatch[1]}` : '';
+
+    // TV No
+    const tvNoMatch = chunk.match(/\d{9}\s*\n\s*(\d+)/);
+    const tvNo = tvNoMatch ? `TV-${tvNoMatch[1]}` : '-';
 
     // Allowances
-    const basicMatch = blockContent.match(/Basic\s*[:\s]*([\d,.]+)/i);
+    const basicMatch = chunk.match(/Basic\s*\n?\s*([\d,.]+)/i);
     const basic = basicMatch ? parseFloat(basicMatch[1].replace(/,/g, '')) : 0;
-    if (basic > 0 && !isSurrender) {
-      lastBasic = basic;
-      profile.currentBasic = basic;
-    }
 
-    const hraMatch = blockContent.match(/HRA\s*[:\s]*([\d,.]+)/i);
+    const hraMatch = chunk.match(/HRA\s*\n?\s*([\d,.]+)/i);
     const hra = hraMatch ? parseFloat(hraMatch[1].replace(/,/g, '')) : 0;
 
-    // DA (filter out 9-digit bill numbers)
-    const daMatches = [...blockContent.matchAll(/DA\s*[:\s]*([\d,.]+)/gi)];
+    // DA: skip 9-digit bill numbers
+    const daMatches = [...chunk.matchAll(/DA\s*\n?\s*([\d,.]+)/gi)];
     let da = 0;
     for (const dm of daMatches) {
       const val = parseFloat(dm[1].replace(/,/g, ''));
@@ -146,89 +186,80 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
       }
     }
 
-    if (basic > 0 && !isSurrender) {
-      detectedDaRate = Math.round((da / basic) * 100);
-      detectedHraRate = Math.round((hra / basic) * 100);
-      profile.currentHraRate = detectedHraRate;
-    }
-
-    // ALL Deductions as per Rajasthan IFMS 3.0 / PayManager
-    const gpfMatch = blockContent.match(/GPF(?:\s*2004)?\s*[:\s]*([\d,.]+)/i);
+    // Deductions
+    const gpfMatch = chunk.match(/GPF(?:\s*2004)?\s*\n?\s*([\d,.]+)/i);
     const gpf = gpfMatch ? parseFloat(gpfMatch[1].replace(/,/g, '')) : 0;
-    if (gpf > 0 && !isArrear) {
-      lastGpf = gpf;
-    }
 
-    const gpfLoanMatch = blockContent.match(/(?:GPFL|GPF\s*Loan)\s*[:\s]*([\d,.]+)/i);
+    const gpfLoanMatch = chunk.match(/(?:GPFL|GPF\s*Loan)\s*\n?\s*([\d,.]+)/i);
     const gpfLoan = gpfLoanMatch ? parseFloat(gpfLoanMatch[1].replace(/,/g, '')) : 0;
 
-    const sipMatch = blockContent.match(/(?:SIP|SI(?!\s*L))\s*[:\s]*([\d,.]+)/i);
+    const sipMatch = chunk.match(/(?:SIP|SI(?!\s*L))\s*\n?\s*([\d,.]+)/i);
     const sip = sipMatch ? parseFloat(sipMatch[1].replace(/,/g, '')) : 0;
-    if (sip > 0) {
-      lastSi = sip;
-      profile.siMonthly = sip;
-    }
 
-    const silMatch = blockContent.match(/(?:SIL|SI\s*Loan)\s*[:\s]*([\d,.]+)/i);
+    const silMatch = chunk.match(/(?:SIL|SI\s*Loan)\s*\n?\s*([\d,.]+)/i);
     const sil = silMatch ? parseFloat(silMatch[1].replace(/,/g, '')) : 0;
-    if (sil > 0) {
-      lastSiLoan = sil;
-    }
 
-    const rghsMatch = blockContent.match(/RGHS\s*[:\s]*([\d,.]+)/i);
+    const rghsMatch = chunk.match(/RGHS\s*\n?\s*([\d,.]+)/i);
     const rghs = rghsMatch ? parseFloat(rghsMatch[1].replace(/,/g, '')) : 0;
-    if (rghs > 0) {
-      lastRghs = rghs;
-    }
 
-    const gisMatch = blockContent.match(/GIS\s*[:\s]*([\d,.]+)/i);
+    const gisMatch = chunk.match(/GIS\s*\n?\s*([\d,.]+)/i);
     const gis = gisMatch ? parseFloat(gisMatch[1].replace(/,/g, '')) : 0;
-    if (gis > 0) {
-      lastGis = gis;
-      profile.gisAmount = gis;
-    }
 
-    const tdsMatch = blockContent.match(/(?:IT|TDS|Income\s*Tax)\s*[:\s]*([\d,.]+)/i);
+    const tdsMatch = chunk.match(/(?:IT|TDS|Income\s*Tax)\s*\n?\s*([\d,.]+)/i);
     const tds = tdsMatch ? parseFloat(tdsMatch[1].replace(/,/g, '')) : 0;
 
-    const licMatch = blockContent.match(/LIC\s*[:\s]*([\d,.]+)/i);
+    const licMatch = chunk.match(/LIC\s*\n?\s*([\d,.]+)/i);
     const lic = licMatch ? parseFloat(licMatch[1].replace(/,/g, '')) : 0;
 
-    const hitkariMatch = blockContent.match(/(?:Hitkari|HN)\s*[:\s]*([\d,.]+)/i);
-    const hitkari = hitkariMatch ? parseFloat(hitkariMatch[1].replace(/,/g, '')) : 0;
-
-    const pliMatch = blockContent.match(/(?:PLI|Postal\s*Life)\s*[:\s]*([\d,.]+)/i);
+    const pliMatch = chunk.match(/(?:PLI|Postal\s*Life)\s*\n?\s*([\d,.]+)/i);
     const pli = pliMatch ? parseFloat(pliMatch[1].replace(/,/g, '')) : 0;
 
-    // Direct block totals match if available
-    const blockTotalsMatch = blockContent.match(/([\d,.]+)\s*\n\s*([\d,.]+)\s*$/);
-    let totalDed = gpf + gpfLoan + sip + sil + rghs + gis + tds + lic + pli + hitkari;
-    let net = (basic + da + hra) - totalDed;
-    let otherDed = 0;
-
-    if (blockTotalsMatch) {
-      const explicitDed = parseFloat(blockTotalsMatch[1].replace(/,/g, ''));
-      const explicitNet = parseFloat(blockTotalsMatch[2].replace(/,/g, ''));
-      if (!isNaN(explicitDed) && explicitDed >= totalDed) {
-        otherDed = Math.round((explicitDed - totalDed) * 100) / 100;
-        totalDed = explicitDed;
-      }
-      if (!isNaN(explicitNet)) {
-        net = explicitNet;
-      }
-    }
+    const hitkariMatch = chunk.match(/(?:Hitkari|HN)\s*\n?\s*([\d,.]+)/i);
+    const hitkari = hitkariMatch ? parseFloat(hitkariMatch[1].replace(/,/g, '')) : 0;
 
     const gross = basic + da + hra;
+    const totalDed = gpf + gpfLoan + sip + sil + rghs + gis + tds + lic + pli + hitkari;
+    const net = gross - totalDed;
 
-    let monthDisplayName = month;
+    if (billType === 'Regular') {
+      drawnRegularMonths.add(`${monthNameStr.toLowerCase()}_${billYear}`);
+      lastRegular = {
+        basic: basic || lastRegular.basic,
+        da: da || lastRegular.da,
+        hra: hra || lastRegular.hra,
+        gpf: gpf || lastRegular.gpf,
+        sip: sip || lastRegular.sip,
+        rghs: rghs || lastRegular.rghs,
+        sil: sil,
+        gpfl: gpfLoan,
+        tds: tds,
+        lic: lic,
+        pli: pli
+      };
+
+      if (basic > 0) {
+        profile.currentBasic = basic;
+        detectedDaRate = Math.round((da / basic) * 100);
+        detectedHraRate = Math.round((hra / basic) * 100);
+        profile.currentHraRate = detectedHraRate;
+      }
+      if (sip > 0) profile.siMonthly = sip;
+      if (gis > 0) profile.gisAmount = gis;
+    }
+
+    let monthDisplayName = `${monthNameStr} ${billYear}`;
+    let monthKey = `${monthNameStr.toLowerCase()}_${billYear}`;
+
     if (isSurrender) {
-      monthDisplayName = `${month} (PL Surrender 15 Days)`;
-    } else if (isArrear) {
-      monthDisplayName = `${month} (DA Arrear GPF Credit)`;
+      monthDisplayName = `${monthNameStr} (PL Surrender 15 Days)`;
+      monthKey = `${monthNameStr.toLowerCase()}_surr`;
+    } else if (isDaArrear) {
+      monthDisplayName = `${monthNameStr} (DA Arrear)`;
+      monthKey = `${monthNameStr.toLowerCase()}_arr`;
     }
 
     records.push({
-      monthKey: isSurrender ? `${month.toLowerCase()}_surr` : isArrear ? `${month.toLowerCase()}_arr` : month.toLowerCase(),
+      monthKey,
       monthName: monthDisplayName,
       billType,
       basicPay: basic,
@@ -237,12 +268,12 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
       splPay: 0,
       ccaAmount: 0,
       bonus: 0,
-      daArrear: isArrear ? da : 0,
+      daArrear: isDaArrear ? da : 0,
       plSurrender: isSurrender ? gross : 0,
       otherAllowances: 0,
       grossSalary: gross,
       gpfAmount: gpf,
-      gpfLoan: gpfLoan,
+      gpfLoan,
       siAmount: sip,
       siLoan: sil,
       rghsAmount: rghs,
@@ -251,7 +282,7 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
       pliAmount: pli,
       itTdsAmount: tds,
       hitkariNidhi: hitkari,
-      otherDeductions: otherDed,
+      otherDeductions: 0,
       totalDeductions: totalDed,
       netPayable: net,
       billNo,
@@ -259,88 +290,62 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     });
   }
 
-  // 3. Project Remaining Months ONLY if they were NOT present in the uploaded PDF
-  const standardRemainingMonths = [
-    { key: 'oct', name: 'October', hitkari: 0 },
-    { key: 'nov', name: 'November', hitkari: 0 },
-    { key: 'dec', name: 'December', hitkari: 250 },
-    { key: 'jan', name: 'January', hitkari: 0 },
-    { key: 'feb', name: 'February', hitkari: 0 },
-  ];
+  // 3. Check for Non-Estimated GA-55:
+  // If some regular months are missing (e.g. October to February),
+  // automatically create them exactly like an Estimated GA-55 does!
+  let projectedCount = 0;
+  const isEstimated = (drawnRegularMonths.size === 12);
 
-  const bonusAmt = bonusEligible ? RAJASTHAN_BONUS_MAX_AMOUNT : 0;
+  fyMonths.forEach(m => {
+    const key = `${m.name.toLowerCase()}_${m.year}`;
+    if (!drawnRegularMonths.has(key)) {
+      projectedCount++;
+      const basic = lastRegular.basic;
+      const da = lastRegular.da;
+      const hra = lastRegular.hra;
+      const gross = basic + da + hra;
 
-  standardRemainingMonths.forEach((m) => {
-    if (!drawnMonths.has(m.key)) {
-      if (m.key === 'nov') {
-        const arrear4Months = Math.round(lastBasic * 0.03) * 4;
-        records.push({
-          monthKey: 'nov_da_arrear',
-          monthName: 'November (3% DA Arrear Jul-Oct)',
-          billType: 'Arrear',
-          basicPay: 0,
-          daAmount: arrear4Months,
-          hraAmount: 0,
-          splPay: 0,
-          ccaAmount: 0,
-          bonus: 0,
-          daArrear: arrear4Months,
-          plSurrender: 0,
-          otherAllowances: 0,
-          grossSalary: arrear4Months,
-          gpfAmount: arrear4Months,
-          gpfLoan: 0,
-          siAmount: 0,
-          siLoan: 0,
-          rghsAmount: 0,
-          gisAmount: 0,
-          licSalary: 0,
-          pliAmount: 0,
-          itTdsAmount: 0,
-          hitkariNidhi: 0,
-          otherDeductions: 0,
-          totalDeductions: arrear4Months,
-          netPayable: 0,
-          billNo: '00412',
-          tvNo: 'TV-950'
-        });
-      }
+      const gpf = lastRegular.gpf;
+      const sip = lastRegular.sip;
+      const rghs = lastRegular.rghs;
+      const sil = lastRegular.sil;
+      const gpfl = lastRegular.gpfl;
+      const lic = lastRegular.lic;
+      const pli = lastRegular.pli;
+      const tds = lastRegular.tds;
 
-      const currentDaRate = (m.key === 'dec' || m.key === 'jan' || m.key === 'feb') ? 63 : 60;
-      const da = Math.round(lastBasic * (currentDaRate / 100));
-      const hra = Math.round(lastBasic * (detectedHraRate / 100));
-      const bonus = (m.key === 'oct') ? bonusAmt : 0;
-      const gross = lastBasic + da + hra + bonus;
-      const totalDed = lastGpf + lastSi + lastSiLoan + lastRghs + lastGis + m.hitkari;
+      const totalDed = gpf + sip + rghs + sil + gpfl + lic + pli + tds;
+      const net = gross - totalDed;
+      const billNo = `-${m.year}${m.monthNum}`;
 
       records.push({
-        monthKey: m.key,
-        monthName: m.name,
-        billType: 'Projected',
-        basicPay: lastBasic,
+        monthKey: `${m.name.toLowerCase()}_${m.year}`,
+        monthName: `${m.name} ${m.year}`,
+        billType: 'Regular',
+        basicPay: basic,
         daAmount: da,
         hraAmount: hra,
         splPay: 0,
         ccaAmount: 0,
-        bonus,
+        bonus: 0,
         daArrear: 0,
         plSurrender: 0,
         otherAllowances: 0,
         grossSalary: gross,
-        gpfAmount: lastGpf,
-        gpfLoan: 0,
-        siAmount: lastSi,
-        siLoan: lastSiLoan,
-        rghsAmount: lastRghs,
-        gisAmount: lastGis,
-        licSalary: 0,
-        pliAmount: 0,
-        itTdsAmount: 0,
-        hitkariNidhi: m.hitkari,
+        gpfAmount: gpf,
+        gpfLoan: gpfl,
+        siAmount: sip,
+        siLoan: sil,
+        rghsAmount: rghs,
+        gisAmount: 0,
+        licSalary: lic,
+        pliAmount: pli,
+        itTdsAmount: tds,
+        hitkariNidhi: 0,
         otherDeductions: 0,
         totalDeductions: totalDed,
-        netPayable: gross - totalDed,
-        billNo: 'ESTIMATED',
+        netPayable: net,
+        billNo,
         tvNo: '-'
       });
     }
@@ -358,6 +363,7 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
     netAmount,
     derivedDaRatePercent: detectedDaRate,
     derivedHraRatePercent: detectedHraRate,
-    isBonusAdded: bonusEligible
+    isEstimated,
+    projectedMonthsCount: projectedCount
   };
 }

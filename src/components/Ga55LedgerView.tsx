@@ -707,16 +707,20 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
                     <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono font-black text-emerald-950 bg-emerald-50/70">
                       {(r.netPayable || 0).toLocaleString('en-IN')}
                     </td>
-                    <td className="p-0.5 sm:p-1 text-center font-mono text-[9.5px] text-gray-600">
+                    <td className="p-0.5 sm:p-1 text-center font-mono text-[9.5px] text-gray-700">
                       {isEditable ? (
                         <input
                           type="text"
                           className="w-full text-center border p-0.5 rounded text-xs"
-                          value={r.tvNo || ''}
+                          value={r.billNo ? `${r.billNo}${r.tvNo && r.tvNo !== '-' ? ' / ' + r.tvNo : ''}` : (r.tvNo || '-')}
                           onChange={(e) => onUpdateRecord(originalIdx, 'tvNo', e.target.value)}
                         />
                       ) : (
-                        r.tvNo || '-'
+                        <div className="flex flex-col items-center justify-center leading-tight">
+                          {r.billNo && <span className="font-semibold text-gray-900">{r.billNo}</span>}
+                          {r.tvNo && r.tvNo !== '-' && <span className="text-[8.5px] text-gray-500 font-normal">{r.tvNo}</span>}
+                          {!r.billNo && (!r.tvNo || r.tvNo === '-') && <span>-</span>}
+                        </div>
                       )}
                     </td>
 

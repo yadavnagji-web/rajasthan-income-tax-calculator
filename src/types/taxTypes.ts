@@ -64,5 +64,4 @@ export interface EmployeeProfile {
   ddoCode?: string;
   officeTan: string;
   ddoName: string;
-  apply3PercentDaHike: boolean; // Today's 3% DA hike
 }

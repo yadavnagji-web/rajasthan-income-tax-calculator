@@ -1,5 +1,4 @@
 import { MonthlyPayRecord, EmployeeProfile } from '../types/taxTypes';
-import { RAJASTHAN_BONUS_MAX_AMOUNT, isPayLevelBonusEligible } from '../utils/daTrackerService';
 
 export const emptyEmployeeProfile: EmployeeProfile = {
   empName: '',
@@ -13,8 +12,8 @@ export const emptyEmployeeProfile: EmployeeProfile = {
   mobileNo: '',
   payLevel: 'L-11',
   currentBasic: 0,
-  financialYear: '2025-26',
-  assessmentYear: '2026-27',
+  financialYear: '2026-27',
+  assessmentYear: '2027-28',
   cityCategory: 'Z',
   currentHraRate: 10,
   siMonthly: 0,
@@ -28,24 +27,23 @@ export const emptyEmployeeProfile: EmployeeProfile = {
   hasHitkari: false,
   ddoCode: '',
   officeTan: '',
-  ddoName: '',
-  apply3PercentDaHike: true
+  ddoName: ''
 };
 
 export function generateEmptyRecords(): MonthlyPayRecord[] {
   const months = [
-    { key: 'mar', name: 'March' },
-    { key: 'apr', name: 'April' },
-    { key: 'may', name: 'May' },
-    { key: 'jun', name: 'June' },
-    { key: 'jul', name: 'July' },
-    { key: 'aug', name: 'August' },
-    { key: 'sep', name: 'September' },
-    { key: 'oct', name: 'October' },
-    { key: 'nov', name: 'November' },
-    { key: 'dec', name: 'December' },
-    { key: 'jan', name: 'January' },
-    { key: 'feb', name: 'February' }
+    { key: 'mar', name: 'March 2026' },
+    { key: 'apr', name: 'April 2026' },
+    { key: 'may', name: 'May 2026' },
+    { key: 'jun', name: 'June 2026' },
+    { key: 'jul', name: 'July 2026' },
+    { key: 'aug', name: 'August 2026' },
+    { key: 'sep', name: 'September 2026' },
+    { key: 'oct', name: 'October 2026' },
+    { key: 'nov', name: 'November 2026' },
+    { key: 'dec', name: 'December 2026' },
+    { key: 'jan', name: 'January 2027' },
+    { key: 'feb', name: 'February 2027' }
   ];
 
   return months.map(m => ({
@@ -92,8 +90,8 @@ export const initialEmployeeProfile: EmployeeProfile = {
   mobileNo: '9876543210',
   payLevel: 'L-11',
   currentBasic: 50800,
-  financialYear: '2025-26',
-  assessmentYear: '2026-27',
+  financialYear: '2026-27',
+  assessmentYear: '2027-28',
   cityCategory: 'Z',
   currentHraRate: 10,
   siMonthly: 7000,
@@ -103,23 +101,19 @@ export const initialEmployeeProfile: EmployeeProfile = {
   hasSurrender: true,
   surrenderMonth: 4,
   surrenderDays: 15,
-  hasBonus: true,
-  hasHitkari: true,
+  hasBonus: false,
+  hasHitkari: false,
   ddoCode: '38402',
   officeTan: 'JDHG20338D',
-  ddoName: 'Principal & DDO, G.V.U.S. School Kuan (38402)',
-  apply3PercentDaHike: true
+  ddoName: 'Govt. Varishtha Upadhyaya Sanskrit School Kuan Dungarpur'
 };
 
-export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRecord[] {
-  const isEligibleBonus = isPayLevelBonusEligible(payLevel);
-  const bonusAmount = isEligibleBonus ? RAJASTHAN_BONUS_MAX_AMOUNT : 0;
-
-  // 12 months records + surrender + arrears
-  const records: MonthlyPayRecord[] = [
+export function generateInitialRecords(): MonthlyPayRecord[] {
+  // Exactly 14 rows matching Rajasthan IFMS 3.0 Estimated GA-55 (PDF 2)
+  return [
     {
-      monthKey: 'mar',
-      monthName: 'March',
+      monthKey: 'mar_2026',
+      monthName: 'March 2026',
       billType: 'Regular',
       basicPay: 50800,
       daAmount: 29464, // 58%
@@ -138,6 +132,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -147,11 +142,11 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-107852'
     },
     {
-      monthKey: 'apr_surr',
+      monthKey: 'apr_2026_surr',
       monthName: 'April (PL Surrender 15 Days)',
       billType: 'Surrender',
       basicPay: 25400,
-      daAmount: 14732, // 58%
+      daAmount: 14732,
       hraAmount: 0,
       splPay: 0,
       ccaAmount: 0,
@@ -167,6 +162,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 0,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -176,8 +172,8 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-1807350'
     },
     {
-      monthKey: 'apr',
-      monthName: 'April',
+      monthKey: 'apr_2026',
+      monthName: 'April 2026',
       billType: 'Regular',
       basicPay: 50800,
       daAmount: 29464, // 58%
@@ -194,8 +190,9 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       siAmount: 7000,
       siLoan: 0,
       rghsAmount: 658,
-      gisAmount: 2100, // Annual GIS in April
+      gisAmount: 2100, // Annual GIS
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -205,8 +202,8 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-356434'
     },
     {
-      monthKey: 'may_arr',
-      monthName: 'May (DA Arrear GPF Credit)',
+      monthKey: 'may_2026_arr',
+      monthName: 'May (DA Arrear)',
       billType: 'Arrear',
       basicPay: 0,
       daAmount: 4064,
@@ -225,6 +222,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 0,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -234,8 +232,8 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-491372'
     },
     {
-      monthKey: 'may',
-      monthName: 'May',
+      monthKey: 'may_2026',
+      monthName: 'May 2026',
       billType: 'Regular',
       basicPay: 50800,
       daAmount: 30480, // 60%
@@ -254,6 +252,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -263,8 +262,8 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-840696'
     },
     {
-      monthKey: 'jun',
-      monthName: 'June',
+      monthKey: 'jun_2026',
+      monthName: 'June 2026',
       billType: 'Regular',
       basicPay: 50800,
       daAmount: 30480, // 60%
@@ -283,6 +282,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -292,8 +292,8 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-1283841'
     },
     {
-      monthKey: 'jul',
-      monthName: 'July',
+      monthKey: 'jul_2026',
+      monthName: 'July 2026',
       billType: 'Regular',
       basicPay: 52300, // Annual Increment
       daAmount: 31380, // 60%
@@ -312,6 +312,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -321,8 +322,8 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-1636338'
     },
     {
-      monthKey: 'aug',
-      monthName: 'August',
+      monthKey: 'aug_2026',
+      monthName: 'August 2026',
       billType: 'Regular',
       basicPay: 52300,
       daAmount: 31380,
@@ -341,6 +342,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -350,8 +352,8 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-2134016'
     },
     {
-      monthKey: 'sep',
-      monthName: 'September',
+      monthKey: 'sep_2026',
+      monthName: 'September 2026',
       billType: 'Regular',
       basicPay: 52300,
       daAmount: 31380,
@@ -370,6 +372,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
@@ -379,70 +382,11 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       tvNo: 'TV-2600647'
     },
     {
-      monthKey: 'oct',
-      monthName: 'October',
-      billType: 'Projected',
+      monthKey: 'oct_2026',
+      monthName: 'October 2026',
+      billType: 'Regular',
       basicPay: 52300,
-      daAmount: 31380, // 60%
-      hraAmount: 5230,
-      splPay: 0,
-      ccaAmount: 0,
-      bonus: bonusAmount, // Auto added for Level 1-12 (₹6,774) and editable!
-      daArrear: 0,
-      plSurrender: 0,
-      otherAllowances: 0,
-      grossSalary: 52300 + 31380 + 5230 + bonusAmount,
-      gpfAmount: 4100,
-      gpfLoan: 0,
-      siAmount: 7000,
-      siLoan: 0,
-      rghsAmount: 658,
-      gisAmount: 0,
-      licSalary: 0,
-      itTdsAmount: 0,
-      hitkariNidhi: 0,
-      otherDeductions: 0,
-      totalDeductions: 11758,
-      netPayable: (52300 + 31380 + 5230 + bonusAmount) - 11758,
-      billNo: 'ESTIMATED',
-      tvNo: '-'
-    },
-    {
-      // 3% DA Arrear: July to October (4 months @ 3% = 1,569 * 4 = 6,276)
-      monthKey: 'nov_da_arrear',
-      monthName: 'November (3% DA Arrear Jul-Oct)',
-      billType: 'Arrear',
-      basicPay: 0,
-      daAmount: 6276,
-      hraAmount: 0,
-      splPay: 0,
-      ccaAmount: 0,
-      bonus: 0,
-      daArrear: 6276,
-      plSurrender: 0,
-      otherAllowances: 0,
-      grossSalary: 6276,
-      gpfAmount: 6276, // Credited to GPF
-      gpfLoan: 0,
-      siAmount: 0,
-      siLoan: 0,
-      rghsAmount: 0,
-      gisAmount: 0,
-      licSalary: 0,
-      itTdsAmount: 0,
-      hitkariNidhi: 0,
-      otherDeductions: 0,
-      totalDeductions: 6276,
-      netPayable: 0,
-      billNo: '00412',
-      tvNo: 'TV-950'
-    },
-    {
-      monthKey: 'nov',
-      monthName: 'November',
-      billType: 'Projected',
-      basicPay: 52300,
-      daAmount: 31380, // November drawn at 60% before cash revision in Dec
+      daAmount: 31380,
       hraAmount: 5230,
       splPay: 0,
       ccaAmount: 0,
@@ -458,20 +402,21 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
       totalDeductions: 11758,
       netPayable: 77152,
-      billNo: 'ESTIMATED',
+      billNo: '-202610',
       tvNo: '-'
     },
     {
-      monthKey: 'dec',
-      monthName: 'December',
-      billType: 'Projected',
+      monthKey: 'nov_2026',
+      monthName: 'November 2026',
+      billType: 'Regular',
       basicPay: 52300,
-      daAmount: 32949, // 63% Cash in December!
+      daAmount: 31380,
       hraAmount: 5230,
       splPay: 0,
       ccaAmount: 0,
@@ -479,7 +424,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       daArrear: 0,
       plSurrender: 0,
       otherAllowances: 0,
-      grossSalary: 90479,
+      grossSalary: 88910,
       gpfAmount: 4100,
       gpfLoan: 0,
       siAmount: 7000,
@@ -487,49 +432,21 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
-      itTdsAmount: 0,
-      hitkariNidhi: 250, // Hitkari Nidhi in December
-      otherDeductions: 0,
-      totalDeductions: 12008,
-      netPayable: 78471,
-      billNo: 'ESTIMATED',
-      tvNo: '-'
-    },
-    {
-      monthKey: 'jan',
-      monthName: 'January',
-      billType: 'Projected',
-      basicPay: 52300,
-      daAmount: 32949, // 63%
-      hraAmount: 5230,
-      splPay: 0,
-      ccaAmount: 0,
-      bonus: 0,
-      daArrear: 0,
-      plSurrender: 0,
-      otherAllowances: 0,
-      grossSalary: 90479,
-      gpfAmount: 4100,
-      gpfLoan: 0,
-      siAmount: 7000,
-      siLoan: 0,
-      rghsAmount: 658,
-      gisAmount: 0,
-      licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
       totalDeductions: 11758,
-      netPayable: 78721,
-      billNo: 'ESTIMATED',
+      netPayable: 77152,
+      billNo: '-202611',
       tvNo: '-'
     },
     {
-      monthKey: 'feb',
-      monthName: 'February',
-      billType: 'Projected',
+      monthKey: 'dec_2026',
+      monthName: 'December 2026',
+      billType: 'Regular',
       basicPay: 52300,
-      daAmount: 32949, // 63%
+      daAmount: 31380,
       hraAmount: 5230,
       splPay: 0,
       ccaAmount: 0,
@@ -537,7 +454,7 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       daArrear: 0,
       plSurrender: 0,
       otherAllowances: 0,
-      grossSalary: 90479,
+      grossSalary: 88910,
       gpfAmount: 4100,
       gpfLoan: 0,
       siAmount: 7000,
@@ -545,15 +462,74 @@ export function generateInitialRecords(payLevel: string = 'L-11'): MonthlyPayRec
       rghsAmount: 658,
       gisAmount: 0,
       licSalary: 0,
+      pliAmount: 0,
       itTdsAmount: 0,
       hitkariNidhi: 0,
       otherDeductions: 0,
       totalDeductions: 11758,
-      netPayable: 78721,
-      billNo: 'ESTIMATED',
+      netPayable: 77152,
+      billNo: '-202612',
+      tvNo: '-'
+    },
+    {
+      monthKey: 'jan_2027',
+      monthName: 'January 2027',
+      billType: 'Regular',
+      basicPay: 52300,
+      daAmount: 31380,
+      hraAmount: 5230,
+      splPay: 0,
+      ccaAmount: 0,
+      bonus: 0,
+      daArrear: 0,
+      plSurrender: 0,
+      otherAllowances: 0,
+      grossSalary: 88910,
+      gpfAmount: 4100,
+      gpfLoan: 0,
+      siAmount: 7000,
+      siLoan: 0,
+      rghsAmount: 658,
+      gisAmount: 0,
+      licSalary: 0,
+      pliAmount: 0,
+      itTdsAmount: 0,
+      hitkariNidhi: 0,
+      otherDeductions: 0,
+      totalDeductions: 11758,
+      netPayable: 77152,
+      billNo: '-202701',
+      tvNo: '-'
+    },
+    {
+      monthKey: 'feb_2027',
+      monthName: 'February 2027',
+      billType: 'Regular',
+      basicPay: 52300,
+      daAmount: 31380,
+      hraAmount: 5230,
+      splPay: 0,
+      ccaAmount: 0,
+      bonus: 0,
+      daArrear: 0,
+      plSurrender: 0,
+      otherAllowances: 0,
+      grossSalary: 88910,
+      gpfAmount: 4100,
+      gpfLoan: 0,
+      siAmount: 7000,
+      siLoan: 0,
+      rghsAmount: 658,
+      gisAmount: 0,
+      licSalary: 0,
+      pliAmount: 0,
+      itTdsAmount: 0,
+      hitkariNidhi: 0,
+      otherDeductions: 0,
+      totalDeductions: 11758,
+      netPayable: 77152,
+      billNo: '-202702',
       tvNo: '-'
     }
   ];
-
-  return records;
 }

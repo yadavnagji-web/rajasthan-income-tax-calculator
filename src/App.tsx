@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { EmployeeProfile, MonthlyPayRecord, CustomColumn } from './types/taxTypes';
-import { emptyEmployeeProfile, generateEmptyRecords } from './data/sampleGa55Data';
+import { initialEmployeeProfile, generateInitialRecords, emptyEmployeeProfile, generateEmptyRecords } from './data/sampleGa55Data';
 import { Ga55UploadCard } from './components/Ga55UploadCard';
-import { DaHikeBanner } from './components/DaHikeBanner';
 import { Ga55LedgerView } from './components/Ga55LedgerView';
 import { Form16PartBView } from './components/Form16PartBView';
 import { TdsPlannerView } from './components/TdsPlannerView';
@@ -12,8 +11,8 @@ type TabKey = 'ga55' | 'form16' | 'tdsPlanner' | 'master';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('ga55');
-  const [profile, setProfile] = useState<EmployeeProfile>(emptyEmployeeProfile);
-  const [records, setRecords] = useState<MonthlyPayRecord[]>(generateEmptyRecords);
+  const [profile, setProfile] = useState<EmployeeProfile>(initialEmployeeProfile);
+  const [records, setRecords] = useState<MonthlyPayRecord[]>(generateInitialRecords);
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -183,55 +182,6 @@ export default function App() {
     setRecords(newRecords);
   };
 
-  // Manual DA Rate Override handler
-  const handleApplyCustomDa = (customRate: number, fromMonthKey: string = 'dec') => {
-    setRecords(prev => {
-      const monthOrder = ['mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb'];
-      const targetStartIdx = monthOrder.indexOf(fromMonthKey);
-
-      return prev.map(r => {
-        const cleanKey = r.monthKey.replace('_surr', '').replace('_arr', '').replace('_da_arrear', '');
-        const mIdx = monthOrder.indexOf(cleanKey);
-
-        if (r.billType === 'Projected' && mIdx >= targetStartIdx) {
-          const newDa = Math.round(r.basicPay * (customRate / 100));
-          const gross = r.basicPay + newDa + r.hraAmount + (r.bonus || 0);
-          const totalDed = (r.gpfAmount || 0) + (r.gpfLoan || 0) + (r.siAmount || 0) + (r.siLoan || 0) + (r.rghsAmount || 0) + (r.gisAmount || 0) + (r.licSalary || 0) + (r.pliAmount || 0) + (r.itTdsAmount || 0) + (r.hitkariNidhi || 0) + (r.otherDeductions || 0);
-          return {
-            ...r,
-            daAmount: newDa,
-            grossSalary: gross,
-            totalDeductions: totalDed,
-            netPayable: gross - totalDed
-          };
-        }
-        return r;
-      });
-    });
-  };
-
-  // Reset back to automatic DA rules
-  const handleResetToAutoDa = () => {
-    setRecords(prev => {
-      return prev.map(r => {
-        if (r.billType === 'Projected') {
-          const autoRate = ['dec', 'jan', 'feb'].includes(r.monthKey) ? 63 : 60;
-          const newDa = Math.round(r.basicPay * (autoRate / 100));
-          const gross = r.basicPay + newDa + r.hraAmount + (r.bonus || 0);
-          const totalDed = (r.gpfAmount || 0) + (r.gpfLoan || 0) + (r.siAmount || 0) + (r.siLoan || 0) + (r.rghsAmount || 0) + (r.gisAmount || 0) + (r.licSalary || 0) + (r.pliAmount || 0) + (r.itTdsAmount || 0) + (r.hitkariNidhi || 0) + (r.otherDeductions || 0);
-          return {
-            ...r,
-            daAmount: newDa,
-            grossSalary: gross,
-            totalDeductions: totalDed,
-            netPayable: gross - totalDed
-          };
-        }
-        return r;
-      });
-    });
-  };
-
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Top Header */}
@@ -245,14 +195,14 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base sm:text-lg font-black tracking-tight">
-                  राजस्थान GA-55 व Form 16 ऑटो टैक्स सिस्टम
+                  राजस्थान Estimated GA-55 व Form 16 ऑटो टैक्स सिस्टम
                 </h1>
                 <span className="text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                   न्यू टैक्स रिजीम
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                IFMS 3.0 पे-मैनेजर GA-55 PDF अपलोड • स्वचालित डीए अद्यतन • 100% सटीक गणना
+                IFMS 3.0 पे-मैनेजर Estimated GA-55 विश्लेषण • 100% सटीक गणना
               </p>
             </div>
           </div>
