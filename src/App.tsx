@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { EmployeeProfile, MonthlyPayRecord, CustomColumn } from './types/taxTypes';
-import { initialEmployeeProfile, generateInitialRecords, emptyEmployeeProfile, generateEmptyRecords } from './data/sampleGa55Data';
+import { emptyEmployeeProfile, generateEmptyRecords } from './data/sampleGa55Data';
 import { Ga55UploadCard } from './components/Ga55UploadCard';
 import { Ga55LedgerView } from './components/Ga55LedgerView';
 import { Form16PartBView } from './components/Form16PartBView';
@@ -11,8 +11,9 @@ type TabKey = 'ga55' | 'form16' | 'tdsPlanner' | 'master';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('ga55');
-  const [profile, setProfile] = useState<EmployeeProfile>(initialEmployeeProfile);
-  const [records, setRecords] = useState<MonthlyPayRecord[]>(generateInitialRecords);
+  // Starts in 100% BLANK state on load. Populated ONLY when user uploads GA-55 PDF or manually edits.
+  const [profile, setProfile] = useState<EmployeeProfile>(emptyEmployeeProfile);
+  const [records, setRecords] = useState<MonthlyPayRecord[]>([]);
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -53,8 +54,15 @@ export default function App() {
   // Reset to initial clean empty state
   const handleResetAll = () => {
     setProfile(emptyEmployeeProfile);
-    setRecords(generateEmptyRecords());
+    setRecords([]);
     setCustomColumns([]);
+  };
+
+  // Initialize empty month rows for manual entry
+  const handleInitBlankRows = () => {
+    if (records.length === 0) {
+      setRecords(generateEmptyRecords());
+    }
   };
 
   // Add custom column (Allowance or Deduction)
@@ -79,8 +87,8 @@ export default function App() {
       const newIdx = prev.length + 1;
       const newRow: MonthlyPayRecord = {
         monthKey: `custom_row_${Date.now()}`,
-        monthName: `अतिरिक्त बिल #${newIdx}`,
-        billType: 'Other',
+        monthName: `बिल #${newIdx}`,
+        billType: 'Regular',
         basicPay: 0,
         daAmount: 0,
         hraAmount: 0,
@@ -301,6 +309,7 @@ export default function App() {
             onDeleteRow={handleDeleteRow}
             onUpdateRecord={handleUpdateRecord}
             onResetRecords={handleResetAll}
+            onInitBlankRows={handleInitBlankRows}
           />
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EmployeeProfile } from '../types/taxTypes';
 
 interface MasterProfileViewProps {
@@ -12,6 +12,10 @@ export const MasterProfileView: React.FC<MasterProfileViewProps> = ({
 }) => {
   const [formData, setFormData] = useState<EmployeeProfile>({ ...profile });
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    setFormData({ ...profile });
+  }, [profile]);
 
   const handleChange = (field: keyof EmployeeProfile, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));

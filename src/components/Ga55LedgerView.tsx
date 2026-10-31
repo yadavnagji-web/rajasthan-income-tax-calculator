@@ -11,6 +11,7 @@ interface Ga55LedgerViewProps {
   onDeleteRow: (index: number) => void;
   onUpdateRecord: (index: number, field: keyof MonthlyPayRecord | string, value: any) => void;
   onResetRecords: () => void;
+  onInitBlankRows?: () => void;
 }
 
 export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
@@ -22,7 +23,7 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
   onAddRow,
   onDeleteRow,
   onUpdateRecord,
-  onResetRecords
+  onInitBlankRows
 }) => {
   const [isEditable, setIsEditable] = useState(false);
   const [showAddColModal, setShowAddColModal] = useState(false);
@@ -124,7 +125,7 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
     (showOtherDed ? 1 : 0) +
     activeCustomDeductions.length;
 
-  // 4. Dynamic Row Filter: Shows all 14 rows / valid records in GA-55
+  // 4. Dynamic Row Filter: Shows rows present in GA-55
   const visibleRecords = records
     .map((rec, originalIdx) => ({ rec, originalIdx }))
     .filter(({ rec }) =>
@@ -138,7 +139,17 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
     window.print();
   };
 
+  const handleToggleEdit = () => {
+    if (!isEditable && records.length === 0 && onInitBlankRows) {
+      onInitBlankRows();
+    }
+    setIsEditable(!isEditable);
+  };
+
   const handleAddRowClick = () => {
+    if (records.length === 0 && onInitBlankRows) {
+      onInitBlankRows();
+    }
     setIsEditable(true);
     onAddRow();
   };
@@ -234,9 +245,11 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
             <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-100 text-indigo-900 border border-indigo-300">
               सत्र: {profile.financialYear || '2026-27'}
             </span>
-            <span className="text-xs text-gray-500 font-semibold">
-              (सकल वेतन: ₹{totalGross.toLocaleString('en-IN')} | कुल कटौती: ₹{totalDed.toLocaleString('en-IN')})
-            </span>
+            {records.length > 0 && (
+              <span className="text-xs text-gray-500 font-semibold">
+                (सकल वेतन: ₹{totalGross.toLocaleString('en-IN')} | कुल कटौती: ₹{totalDed.toLocaleString('en-IN')})
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
             GA-55 के अनुसार प्रत्येक भत्ता एवं कटौती (SI ऋण, GPF ऋण, LIC, PLI आदि) अलग-अलग कॉलम में सटीक प्रदर्शित हैं।
@@ -246,7 +259,7 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
         {/* Buttons */}
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setIsEditable(!isEditable)}
+            onClick={handleToggleEdit}
             className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all ${
               isEditable
                 ? 'bg-amber-600 text-white border-amber-700 shadow-md'
@@ -356,14 +369,14 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
         {/* Employee & DDO Master Info Box */}
         <div className="grid grid-cols-2 gap-2 border border-gray-800 p-1.5 mb-1 bg-gray-50/70 text-[10px] sm:text-[11px]">
           <div className="space-y-0.5">
-            <div>कार्मिक नाम: <strong className="text-xs">{profile.empName}</strong> ({profile.empId || 'RJDU201015007204'})</div>
-            <div>पद व वेतनमान: <strong>{profile.designation}</strong> • पे-मैट्रिक्स लेवल: <strong>{profile.payLevel || 'L-11'}</strong></div>
-            <div>PAN: <strong className="font-mono">{profile.panNumber}</strong> | बैंक खाता: <span className="font-mono">{profile.bankAccount}</span></div>
+            <div>कार्मिक नाम: <strong className="text-xs">{profile.empName || '-'}</strong> {profile.empId ? `(${profile.empId})` : ''}</div>
+            <div>पद व वेतनमान: <strong>{profile.designation || '-'}</strong> • पे-मैट्रिक्स लेवल: <strong>{profile.payLevel || '-'}</strong></div>
+            <div>PAN: <strong className="font-mono">{profile.panNumber || '-'}</strong> | बैंक खाता: <span className="font-mono">{profile.bankAccount || '-'}</span></div>
           </div>
           <div className="text-right space-y-0.5">
-            <div>कार्यालय/विद्यालय: <strong>{profile.schoolName}</strong></div>
-            <div>DDO कोड: <strong>{profile.ddoCode || '38402'}</strong> | TAN: <strong className="font-mono">{profile.officeTan || 'JDHG20338D'}</strong></div>
-            <div>GPF / PRAN नं.: <strong className="font-mono">{profile.pranNumber}</strong> | SI पॉलिसी: <span className="font-mono">{profile.siNumber || '-'}</span></div>
+            <div>कार्यालय/विद्यालय: <strong>{profile.schoolName || '-'}</strong></div>
+            <div>DDO कोड: <strong>{profile.ddoCode || '-'}</strong> | TAN: <strong className="font-mono">{profile.officeTan || '-'}</strong></div>
+            <div>GPF / PRAN नं.: <strong className="font-mono">{profile.pranNumber || '-'}</strong> | SI पॉलिसी: <span className="font-mono">{profile.siNumber || '-'}</span></div>
           </div>
         </div>
 
@@ -408,7 +421,7 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
                   </th>
                 ))}
 
-                {/* Deductions Headers: Separate for every single deduction */}
+                {/* Deductions Headers */}
                 {showGpf && <th className="border-r border-gray-800 p-0.5">GPF (2004)</th>}
                 {showGpfLoan && <th className="border-r border-gray-800 p-0.5 text-amber-950">GPF ऋण (GPFL)</th>}
                 {showSi && <th className="border-r border-gray-800 p-0.5">राज्य बीमा (SI)</th>}
@@ -433,466 +446,489 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
               </tr>
             </thead>
             <tbody>
-              {visibleRecords.map(({ rec: r, originalIdx }, displayIdx) => (
-                <tr
-                  key={r.monthKey || originalIdx}
-                  className={`border-b border-gray-300 text-right ${
-                    r.billType === 'Surrender' ? 'bg-purple-50/60 font-medium' : r.billType === 'Arrear' ? 'bg-amber-50/60 font-medium' : displayIdx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'
-                  }`}
-                >
-                  <td className="border-r border-gray-800 p-0.5 sm:p-1 text-center font-mono font-medium">{displayIdx + 1}</td>
-                  <td className="border-r border-gray-800 p-0.5 sm:p-1 text-left font-semibold">
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        className="w-full border p-0.5 rounded text-xs"
-                        value={r.monthName}
-                        onChange={(e) => onUpdateRecord(originalIdx, 'monthName', e.target.value)}
-                      />
-                    ) : (
-                      <>
-                        {r.monthName}
-                        {r.billType && r.billType !== 'Regular' && (
-                          <span className="text-[8px] px-1 py-0.5 ml-1 rounded bg-gray-200 text-gray-800 font-sans">{r.billType}</span>
-                        )}
-                      </>
-                    )}
-                  </td>
-
-                  {/* Allowances Columns */}
-                  {showBasic && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.basicPay || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'basicPay', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.basicPay || 0).toLocaleString('en-IN')
-                      )}
-                    </td>
-                  )}
-
-                  {showDa && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.daAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'daAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.daAmount || 0).toLocaleString('en-IN')
-                      )}
-                    </td>
-                  )}
-
-                  {showHra && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.hraAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'hraAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.hraAmount || 0) > 0 ? (r.hraAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showSplPay && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-blue-900">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.splPay || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'splPay', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.splPay || 0) > 0 ? (r.splPay || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showCca && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-blue-900">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.ccaAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'ccaAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.ccaAmount || 0) > 0 ? (r.ccaAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showBonus && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-indigo-900 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.bonus || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'bonus', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.bonus || 0) > 0 ? (r.bonus || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showSurrender && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-purple-900 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.plSurrender || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'plSurrender', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.plSurrender || 0) > 0 ? (r.plSurrender || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showDaArrear && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-900 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.daArrear || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'daArrear', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.daArrear || 0) > 0 ? (r.daArrear || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showOtherAllowances && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-slate-900">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.otherAllowances || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'otherAllowances', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.otherAllowances || 0) > 0 ? (r.otherAllowances || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {activeCustomAllowances.map(c => {
-                    const val = Number(r.customFields?.[c.id]) || 0;
-                    return (
-                      <td key={c.id} className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-blue-950 bg-blue-50/40">
-                        {isEditable ? (
-                          <input
-                            type="number"
-                            className="w-full text-right border p-0.5 rounded text-xs"
-                            value={val || ''}
-                            onChange={(e) => onUpdateRecord(originalIdx, c.id, parseFloat(e.target.value) || 0)}
-                          />
-                        ) : (
-                          val > 0 ? val.toLocaleString('en-IN') : '-'
-                        )}
-                      </td>
-                    );
-                  })}
-
-                  {/* Gross Salary */}
-                  <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono font-black text-blue-950 bg-blue-50/60">
-                    {(r.grossSalary || 0).toLocaleString('en-IN')}
-                  </td>
-
-                  {/* Deductions Columns */}
-                  {showGpf && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.gpfAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'gpfAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.gpfAmount || 0) > 0 ? (r.gpfAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showGpfLoan && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-950 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.gpfLoan || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'gpfLoan', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.gpfLoan || 0) > 0 ? (r.gpfLoan || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showSi && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.siAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'siAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.siAmount || 0) > 0 ? (r.siAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showSiLoan && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-950 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.siLoan || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'siLoan', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.siLoan || 0) > 0 ? (r.siLoan || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showRghs && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.rghsAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'rghsAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.rghsAmount || 0) > 0 ? (r.rghsAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showGis && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.gisAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'gisAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.gisAmount || 0) > 0 ? (r.gisAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showLic && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-teal-900 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.licSalary || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'licSalary', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.licSalary || 0) > 0 ? (r.licSalary || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showPli && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-teal-900 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.pliAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'pliAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.pliAmount || 0) > 0 ? (r.pliAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showTds && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-red-700 font-bold">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.itTdsAmount || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'itTdsAmount', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.itTdsAmount || 0) > 0 ? (r.itTdsAmount || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showHitkari && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-900">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.hitkariNidhi || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'hitkariNidhi', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.hitkariNidhi || 0) > 0 ? (r.hitkariNidhi || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {showOtherDed && (
-                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-slate-800">
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          className="w-full text-right border p-0.5 rounded text-xs"
-                          value={r.otherDeductions || ''}
-                          onChange={(e) => onUpdateRecord(originalIdx, 'otherDeductions', parseFloat(e.target.value) || 0)}
-                        />
-                      ) : (
-                        (r.otherDeductions || 0) > 0 ? (r.otherDeductions || 0).toLocaleString('en-IN') : '-'
-                      )}
-                    </td>
-                  )}
-
-                  {activeCustomDeductions.map(c => {
-                    const val = Number(r.customFields?.[c.id]) || 0;
-                    return (
-                      <td key={c.id} className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-950 bg-amber-50/40">
-                        {isEditable ? (
-                          <input
-                            type="number"
-                            className="w-full text-right border p-0.5 rounded text-xs"
-                            value={val || ''}
-                            onChange={(e) => onUpdateRecord(originalIdx, c.id, parseFloat(e.target.value) || 0)}
-                          />
-                        ) : (
-                          val > 0 ? val.toLocaleString('en-IN') : '-'
-                        )}
-                      </td>
-                    );
-                  })}
-
-                  {/* Total Deductions & Net Pay */}
-                  <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono font-bold text-amber-950 bg-amber-50/60">
-                    {(r.totalDeductions || 0).toLocaleString('en-IN')}
-                  </td>
-                  <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono font-black text-emerald-950 bg-emerald-50/70">
-                    {(r.netPayable || 0).toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-0.5 sm:p-1 text-center font-mono text-[9px] text-gray-700">
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        className="w-full text-center border p-0.5 rounded text-xs"
-                        value={r.billNo ? `${r.billNo}${r.tvNo && r.tvNo !== '-' ? ' / ' + r.tvNo : ''}` : (r.tvNo || '-')}
-                        onChange={(e) => onUpdateRecord(originalIdx, 'tvNo', e.target.value)}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center leading-tight">
-                        {r.billNo && <span className="font-semibold text-gray-900">{r.billNo}</span>}
-                        {r.tvNo && r.tvNo !== '-' && <span className="text-[8px] text-gray-500 font-normal">{r.tvNo}</span>}
-                        {!r.billNo && (!r.tvNo || r.tvNo === '-') && <span>-</span>}
+              {visibleRecords.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={allowanceColCount + deductionColCount + 6}
+                    className="py-12 px-4 text-center text-gray-500 bg-gray-50/50"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl font-bold">
+                        📄
                       </div>
-                    )}
+                      <span className="text-sm font-bold text-gray-800">
+                        कोई GA-55 डेटा लोड नहीं है (Blank Format)
+                      </span>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        अपना विवरण देखने के लिए ऊपर दिए गए <strong>'GA-55 PDF चुनें'</strong> बटन पर क्लिक करके अपना IFMS 3.0 GA-55 PDF अपलोड करें अथवा <strong>'✏️ मैन्युअल संपादन'</strong> बटन दबाकर डेटा भरें।
+                      </p>
+                    </div>
                   </td>
-
-                  {isEditable && (
-                    <td className="p-0.5 sm:p-1 text-center print:hidden">
-                      <button
-                        onClick={() => onDeleteRow(originalIdx)}
-                        className="text-red-500 hover:text-red-700 font-bold px-1 text-xs"
-                        title="यह पंक्ति हटाएं"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  )}
                 </tr>
-              ))}
+              ) : (
+                visibleRecords.map(({ rec: r, originalIdx }, displayIdx) => (
+                  <tr
+                    key={r.monthKey || originalIdx}
+                    className={`border-b border-gray-300 text-right ${
+                      r.billType === 'Surrender' ? 'bg-purple-50/60 font-medium' : r.billType === 'Arrear' ? 'bg-amber-50/60 font-medium' : displayIdx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'
+                    }`}
+                  >
+                    <td className="border-r border-gray-800 p-0.5 sm:p-1 text-center font-mono font-medium">{displayIdx + 1}</td>
+                    <td className="border-r border-gray-800 p-0.5 sm:p-1 text-left font-semibold">
+                      {isEditable ? (
+                        <input
+                          type="text"
+                          className="w-full border p-0.5 rounded text-xs"
+                          value={r.monthName}
+                          onChange={(e) => onUpdateRecord(originalIdx, 'monthName', e.target.value)}
+                        />
+                      ) : (
+                        <>
+                          {r.monthName}
+                          {r.billType && r.billType !== 'Regular' && (
+                            <span className="text-[8px] px-1 py-0.5 ml-1 rounded bg-gray-200 text-gray-800 font-sans">{r.billType}</span>
+                          )}
+                        </>
+                      )}
+                    </td>
+
+                    {/* Allowances Columns */}
+                    {showBasic && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.basicPay || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'basicPay', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.basicPay || 0).toLocaleString('en-IN')
+                        )}
+                      </td>
+                    )}
+
+                    {showDa && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.daAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'daAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.daAmount || 0).toLocaleString('en-IN')
+                        )}
+                      </td>
+                    )}
+
+                    {showHra && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.hraAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'hraAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.hraAmount || 0) > 0 ? (r.hraAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showSplPay && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-blue-900">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.splPay || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'splPay', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.splPay || 0) > 0 ? (r.splPay || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showCca && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-blue-900">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.ccaAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'ccaAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.ccaAmount || 0) > 0 ? (r.ccaAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showBonus && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-indigo-900 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.bonus || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'bonus', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.bonus || 0) > 0 ? (r.bonus || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showSurrender && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-purple-900 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.plSurrender || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'plSurrender', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.plSurrender || 0) > 0 ? (r.plSurrender || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showDaArrear && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-900 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.daArrear || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'daArrear', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.daArrear || 0) > 0 ? (r.daArrear || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showOtherAllowances && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-slate-900">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.otherAllowances || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'otherAllowances', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.otherAllowances || 0) > 0 ? (r.otherAllowances || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {activeCustomAllowances.map(c => {
+                      const val = Number(r.customFields?.[c.id]) || 0;
+                      return (
+                        <td key={c.id} className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-blue-950 bg-blue-50/40">
+                          {isEditable ? (
+                            <input
+                              type="number"
+                              className="w-full text-right border p-0.5 rounded text-xs"
+                              value={val || ''}
+                              onChange={(e) => onUpdateRecord(originalIdx, c.id, parseFloat(e.target.value) || 0)}
+                            />
+                          ) : (
+                            val > 0 ? val.toLocaleString('en-IN') : '-'
+                          )}
+                        </td>
+                      );
+                    })}
+
+                    {/* Gross Salary */}
+                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono font-black text-blue-950 bg-blue-50/60">
+                      {(r.grossSalary || 0).toLocaleString('en-IN')}
+                    </td>
+
+                    {/* Deductions Columns */}
+                    {showGpf && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.gpfAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'gpfAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.gpfAmount || 0) > 0 ? (r.gpfAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showGpfLoan && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-950 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.gpfLoan || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'gpfLoan', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.gpfLoan || 0) > 0 ? (r.gpfLoan || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showSi && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.siAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'siAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.siAmount || 0) > 0 ? (r.siAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showSiLoan && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-950 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.siLoan || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'siLoan', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.siLoan || 0) > 0 ? (r.siLoan || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showRghs && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.rghsAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'rghsAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.rghsAmount || 0) > 0 ? (r.rghsAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showGis && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.gisAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'gisAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.gisAmount || 0) > 0 ? (r.gisAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showLic && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-teal-900 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.licSalary || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'licSalary', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.licSalary || 0) > 0 ? (r.licSalary || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showPli && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-teal-900 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.pliAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'pliAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.pliAmount || 0) > 0 ? (r.pliAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showTds && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-red-700 font-bold">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.itTdsAmount || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'itTdsAmount', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.itTdsAmount || 0) > 0 ? (r.itTdsAmount || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showHitkari && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-900">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.hitkariNidhi || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'hitkariNidhi', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.hitkariNidhi || 0) > 0 ? (r.hitkariNidhi || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {showOtherDed && (
+                      <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-slate-800">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            className="w-full text-right border p-0.5 rounded text-xs"
+                            value={r.otherDeductions || ''}
+                            onChange={(e) => onUpdateRecord(originalIdx, 'otherDeductions', parseFloat(e.target.value) || 0)}
+                          />
+                        ) : (
+                          (r.otherDeductions || 0) > 0 ? (r.otherDeductions || 0).toLocaleString('en-IN') : '-'
+                        )}
+                      </td>
+                    )}
+
+                    {activeCustomDeductions.map(c => {
+                      const val = Number(r.customFields?.[c.id]) || 0;
+                      return (
+                        <td key={c.id} className="border-r border-gray-800 p-0.5 sm:p-1 font-mono text-amber-950 bg-amber-50/40">
+                          {isEditable ? (
+                            <input
+                              type="number"
+                              className="w-full text-right border p-0.5 rounded text-xs"
+                              value={val || ''}
+                              onChange={(e) => onUpdateRecord(originalIdx, c.id, parseFloat(e.target.value) || 0)}
+                            />
+                          ) : (
+                            val > 0 ? val.toLocaleString('en-IN') : '-'
+                          )}
+                        </td>
+                      );
+                    })}
+
+                    {/* Total Deductions & Net Pay */}
+                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono font-bold text-amber-950 bg-amber-50/60">
+                      {(r.totalDeductions || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="border-r border-gray-800 p-0.5 sm:p-1 font-mono font-black text-emerald-950 bg-emerald-50/70">
+                      {(r.netPayable || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-0.5 sm:p-1 text-center font-mono text-[9px] text-gray-700">
+                      {isEditable ? (
+                        <input
+                          type="text"
+                          className="w-full text-center border p-0.5 rounded text-xs"
+                          value={r.billNo ? `${r.billNo}${r.tvNo && r.tvNo !== '-' ? ' / ' + r.tvNo : ''}` : (r.tvNo || '-')}
+                          onChange={(e) => onUpdateRecord(originalIdx, 'tvNo', e.target.value)}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center leading-tight">
+                          {r.billNo && <span className="font-semibold text-gray-900">{r.billNo}</span>}
+                          {r.tvNo && r.tvNo !== '-' && <span className="text-[8px] text-gray-500 font-normal">{r.tvNo}</span>}
+                          {!r.billNo && (!r.tvNo || r.tvNo === '-') && <span>-</span>}
+                        </div>
+                      )}
+                    </td>
+
+                    {isEditable && (
+                      <td className="p-0.5 sm:p-1 text-center print:hidden">
+                        <button
+                          onClick={() => onDeleteRow(originalIdx)}
+                          className="text-red-500 hover:text-red-700 font-bold px-1 text-xs"
+                          title="यह पंक्ति हटाएं"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
             </tbody>
-            <tfoot>
-              <tr className="bg-gray-200 border-t-2 border-gray-800 font-black text-right text-[10px] sm:text-xs">
-                <td colSpan={2} className="border-r border-gray-800 p-1 text-center uppercase tracking-wide">
-                  कुल वार्षिक योग (Grand Total)
-                </td>
-                {showBasic && <td className="border-r border-gray-800 p-1 font-mono">₹{totalBasic.toLocaleString('en-IN')}</td>}
-                {showDa && <td className="border-r border-gray-800 p-1 font-mono">₹{totalDa.toLocaleString('en-IN')}</td>}
-                {showHra && <td className="border-r border-gray-800 p-1 font-mono">₹{totalHra.toLocaleString('en-IN')}</td>}
-                {showSplPay && <td className="border-r border-gray-800 p-1 font-mono text-blue-900">₹{totalSplPay.toLocaleString('en-IN')}</td>}
-                {showCca && <td className="border-r border-gray-800 p-1 font-mono text-blue-900">₹{totalCca.toLocaleString('en-IN')}</td>}
-                {showBonus && <td className="border-r border-gray-800 p-1 font-mono text-indigo-900">₹{totalBonus.toLocaleString('en-IN')}</td>}
-                {showSurrender && <td className="border-r border-gray-800 p-1 font-mono text-purple-900">₹{totalSurrender.toLocaleString('en-IN')}</td>}
-                {showDaArrear && <td className="border-r border-gray-800 p-1 font-mono text-amber-900">₹{totalDaArrear.toLocaleString('en-IN')}</td>}
-                {showOtherAllowances && <td className="border-r border-gray-800 p-1 font-mono text-slate-900">₹{totalOtherAllowances.toLocaleString('en-IN')}</td>}
-
-                {activeCustomAllowances.map(c => (
-                  <td key={c.id} className="border-r border-gray-800 p-1 font-mono text-blue-900 bg-blue-100">
-                    ₹{(customAllowanceTotals[c.id] || 0).toLocaleString('en-IN')}
+            {visibleRecords.length > 0 && (
+              <tfoot>
+                <tr className="bg-gray-200 border-t-2 border-gray-800 font-black text-right text-[10px] sm:text-xs">
+                  <td colSpan={2} className="border-r border-gray-800 p-1 text-center uppercase tracking-wide">
+                    कुल वार्षिक योग (Grand Total)
                   </td>
-                ))}
+                  {showBasic && <td className="border-r border-gray-800 p-1 font-mono">₹{totalBasic.toLocaleString('en-IN')}</td>}
+                  {showDa && <td className="border-r border-gray-800 p-1 font-mono">₹{totalDa.toLocaleString('en-IN')}</td>}
+                  {showHra && <td className="border-r border-gray-800 p-1 font-mono">₹{totalHra.toLocaleString('en-IN')}</td>}
+                  {showSplPay && <td className="border-r border-gray-800 p-1 font-mono text-blue-900">₹{totalSplPay.toLocaleString('en-IN')}</td>}
+                  {showCca && <td className="border-r border-gray-800 p-1 font-mono text-blue-900">₹{totalCca.toLocaleString('en-IN')}</td>}
+                  {showBonus && <td className="border-r border-gray-800 p-1 font-mono text-indigo-900">₹{totalBonus.toLocaleString('en-IN')}</td>}
+                  {showSurrender && <td className="border-r border-gray-800 p-1 font-mono text-purple-900">₹{totalSurrender.toLocaleString('en-IN')}</td>}
+                  {showDaArrear && <td className="border-r border-gray-800 p-1 font-mono text-amber-900">₹{totalDaArrear.toLocaleString('en-IN')}</td>}
+                  {showOtherAllowances && <td className="border-r border-gray-800 p-1 font-mono text-slate-900">₹{totalOtherAllowances.toLocaleString('en-IN')}</td>}
 
-                <td className="border-r border-gray-800 p-1 font-mono text-blue-950 bg-blue-100 font-black">
-                  ₹{totalGross.toLocaleString('en-IN')}
-                </td>
+                  {activeCustomAllowances.map(c => (
+                    <td key={c.id} className="border-r border-gray-800 p-1 font-mono text-blue-900 bg-blue-100">
+                      ₹{(customAllowanceTotals[c.id] || 0).toLocaleString('en-IN')}
+                    </td>
+                  ))}
 
-                {showGpf && <td className="border-r border-gray-800 p-1 font-mono">₹{totalGpf.toLocaleString('en-IN')}</td>}
-                {showGpfLoan && <td className="border-r border-gray-800 p-1 font-mono text-amber-950">₹{totalGpfLoan.toLocaleString('en-IN')}</td>}
-                {showSi && <td className="border-r border-gray-800 p-1 font-mono">₹{totalSi.toLocaleString('en-IN')}</td>}
-                {showSiLoan && <td className="border-r border-gray-800 p-1 font-mono text-amber-950">₹{totalSiLoan.toLocaleString('en-IN')}</td>}
-                {showRghs && <td className="border-r border-gray-800 p-1 font-mono">₹{totalRghs.toLocaleString('en-IN')}</td>}
-                {showGis && <td className="border-r border-gray-800 p-1 font-mono">₹{totalGis.toLocaleString('en-IN')}</td>}
-                {showLic && <td className="border-r border-gray-800 p-1 font-mono text-teal-900">₹{totalLic.toLocaleString('en-IN')}</td>}
-                {showPli && <td className="border-r border-gray-800 p-1 font-mono text-teal-900">₹{totalPli.toLocaleString('en-IN')}</td>}
-                {showTds && <td className="border-r border-gray-800 p-1 font-mono text-red-800 font-black">₹{totalTds.toLocaleString('en-IN')}</td>}
-                {showHitkari && <td className="border-r border-gray-800 p-1 font-mono text-amber-900">₹{totalHitkari.toLocaleString('en-IN')}</td>}
-                {showOtherDed && <td className="border-r border-gray-800 p-1 font-mono text-slate-800">₹{totalOtherDed.toLocaleString('en-IN')}</td>}
-
-                {activeCustomDeductions.map(c => (
-                  <td key={c.id} className="border-r border-gray-800 p-1 font-mono text-amber-950 bg-amber-100">
-                    ₹{(customDeductionTotals[c.id] || 0).toLocaleString('en-IN')}
+                  <td className="border-r border-gray-800 p-1 font-mono text-blue-950 bg-blue-100 font-black">
+                    ₹{totalGross.toLocaleString('en-IN')}
                   </td>
-                ))}
 
-                <td className="border-r border-gray-800 p-1 font-mono text-amber-900 bg-amber-100 font-black">
-                  ₹{totalDed.toLocaleString('en-IN')}
-                </td>
-                <td className="border-r border-gray-800 p-1 font-mono text-emerald-950 bg-emerald-100 font-black">
-                  ₹{totalNet.toLocaleString('en-IN')}
-                </td>
-                <td className="p-1 text-center font-sans font-bold text-gray-800">GA-55 OK</td>
-                {isEditable && <td className="p-1 text-center print:hidden">-</td>}
-              </tr>
-            </tfoot>
+                  {showGpf && <td className="border-r border-gray-800 p-1 font-mono">₹{totalGpf.toLocaleString('en-IN')}</td>}
+                  {showGpfLoan && <td className="border-r border-gray-800 p-1 font-mono text-amber-950">₹{totalGpfLoan.toLocaleString('en-IN')}</td>}
+                  {showSi && <td className="border-r border-gray-800 p-1 font-mono">₹{totalSi.toLocaleString('en-IN')}</td>}
+                  {showSiLoan && <td className="border-r border-gray-800 p-1 font-mono text-amber-950">₹{totalSiLoan.toLocaleString('en-IN')}</td>}
+                  {showRghs && <td className="border-r border-gray-800 p-1 font-mono">₹{totalRghs.toLocaleString('en-IN')}</td>}
+                  {showGis && <td className="border-r border-gray-800 p-1 font-mono">₹{totalGis.toLocaleString('en-IN')}</td>}
+                  {showLic && <td className="border-r border-gray-800 p-1 font-mono text-teal-900">₹{totalLic.toLocaleString('en-IN')}</td>}
+                  {showPli && <td className="border-r border-gray-800 p-1 font-mono text-teal-900">₹{totalPli.toLocaleString('en-IN')}</td>}
+                  {showTds && <td className="border-r border-gray-800 p-1 font-mono text-red-800 font-black">₹{totalTds.toLocaleString('en-IN')}</td>}
+                  {showHitkari && <td className="border-r border-gray-800 p-1 font-mono text-amber-900">₹{totalHitkari.toLocaleString('en-IN')}</td>}
+                  {showOtherDed && <td className="border-r border-gray-800 p-1 font-mono text-slate-800">₹{totalOtherDed.toLocaleString('en-IN')}</td>}
+
+                  {activeCustomDeductions.map(c => (
+                    <td key={c.id} className="border-r border-gray-800 p-1 font-mono text-amber-950 bg-amber-100">
+                      ₹{(customDeductionTotals[c.id] || 0).toLocaleString('en-IN')}
+                    </td>
+                  ))}
+
+                  <td className="border-r border-gray-800 p-1 font-mono text-amber-900 bg-amber-100 font-black">
+                    ₹{totalDed.toLocaleString('en-IN')}
+                  </td>
+                  <td className="border-r border-gray-800 p-1 font-mono text-emerald-950 bg-emerald-100 font-black">
+                    ₹{totalNet.toLocaleString('en-IN')}
+                  </td>
+                  <td className="p-1 text-center font-sans font-bold text-gray-800">GA-55 OK</td>
+                  {isEditable && <td className="p-1 text-center print:hidden">-</td>}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
@@ -901,7 +937,7 @@ export const Ga55LedgerView: React.FC<Ga55LedgerViewProps> = ({
           <div>
             <div className="font-medium text-gray-800">प्रमाणित किया जाता है कि उपर्युक्त विवरण PayManager / IFMS 3.0 रिकॉर्ड व सेवा पुस्तिका के अनुसार सही है।</div>
             <div className="mt-0.5 text-gray-600 font-mono text-[10px]">
-              सत्र: <strong>{profile.financialYear || '2026-27'}</strong> • दिनांक: {new Date().toLocaleDateString('en-IN')} • कार्यालय: {profile.schoolName?.substring(0, 40)}
+              सत्र: <strong>{profile.financialYear || '2026-27'}</strong> • दिनांक: {new Date().toLocaleDateString('en-IN')} • कार्यालय: {profile.schoolName || '-'}
             </div>
           </div>
           <div className="text-right">

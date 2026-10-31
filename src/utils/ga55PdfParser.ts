@@ -72,25 +72,25 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
 
   const payLevel = payScaleMatch
     ? (payScaleMatch[1].startsWith('L-') ? payScaleMatch[1] : `L-${payScaleMatch[1].replace('L', '')}`)
-    : 'L-11';
+    : '';
 
   const profile: Partial<EmployeeProfile> = {
-    empName: empNameMatch ? empNameMatch[1].trim() : 'NAGJI YADAV',
-    empId: empIdMatch ? empIdMatch[1].trim() : 'RJDU201015007204',
-    designation: desigMatch ? desigMatch[1].trim() : 'Teacher (L-11)',
+    empName: empNameMatch ? empNameMatch[1].trim() : '',
+    empId: empIdMatch ? empIdMatch[1].trim() : '',
+    designation: desigMatch ? desigMatch[1].trim() : '',
     payLevel: payLevel,
     financialYear: detectedFy,
     assessmentYear: detectedAy,
-    panNumber: panMatch ? panMatch[1].trim() : 'AHHPY4147Q',
-    bankAccount: bankAccMatch ? bankAccMatch[1].trim() : '15000100003153',
-    pranNumber: gpfMatch ? gpfMatch[1].trim() : 'GPF0368799',
-    officeTan: tanMatch ? tanMatch[1].trim() : 'JDHG20338D',
-    ddoCode: ddoCodeMatch ? ddoCodeMatch[1].trim() : '38402',
-    schoolName: officeNameMatch ? officeNameMatch[1].trim() : 'Govt. Varishtha Upadhyaya Sanskrit School Kuan Dungarpur',
-    currentBasic: 50800,
+    panNumber: panMatch ? panMatch[1].trim() : '',
+    bankAccount: bankAccMatch ? bankAccMatch[1].trim() : '',
+    pranNumber: gpfMatch ? gpfMatch[1].trim() : '',
+    officeTan: tanMatch ? tanMatch[1].trim() : '',
+    ddoCode: ddoCodeMatch ? ddoCodeMatch[1].trim() : '',
+    schoolName: officeNameMatch ? officeNameMatch[1].trim() : '',
+    currentBasic: 0,
     currentHraRate: 10,
-    siMonthly: 7000,
-    gisAmount: 2100,
+    siMonthly: 0,
+    gisAmount: 0,
     hasBonus: false
   };
 
@@ -121,16 +121,16 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
   const drawnRegularMonths = new Set<string>();
 
   let lastRegular = {
-    basic: 50800,
-    da: 30480,
-    hra: 5080,
+    basic: 0,
+    da: 0,
+    hra: 0,
     splPay: 0,
     cca: 0,
-    gpf: 2850,
+    gpf: 0,
     gpfLoan: 0,
-    sip: 7000,
+    sip: 0,
     sil: 0,
-    rghs: 658,
+    rghs: 0,
     gis: 0,
     lic: 0,
     pli: 0,
@@ -337,7 +337,7 @@ export async function parseRajasthanGa55Pdf(file: File): Promise<ParsedGa55Resul
 
   fyMonths.forEach(m => {
     const key = `${m.name.toLowerCase()}_${m.year}`;
-    if (!drawnRegularMonths.has(key)) {
+    if (!drawnRegularMonths.has(key) && lastRegular.basic > 0) {
       projectedCount++;
       const basic = lastRegular.basic;
       const da = lastRegular.da;

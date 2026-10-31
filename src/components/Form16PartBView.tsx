@@ -149,6 +149,13 @@ export const Form16PartBView: React.FC<Form16PartBViewProps> = ({
         </div>
       </div>
 
+      {!profile.empName && totalGrossSalary === 0 && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2 print:hidden">
+          <span>ℹ️</span>
+          <span>कृपया <strong>GA-55 PDF अपलोड करें</strong> या 'GA-55 वेतन विवरण' टैब में डेटा भरें। वर्तमान में फॉर्म ब्लैंक है।</span>
+        </div>
+      )}
+
       {/* Printable Area - Form 16 Part B (Guaranteed 1-Page Portrait) */}
       <div className="form16-print-container max-w-[800px] mx-auto border-2 border-gray-800 p-3 sm:p-4 bg-white text-gray-900 text-[10px] sm:text-[10.5px] leading-tight font-sans">
         {/* Header */}
@@ -179,15 +186,15 @@ export const Form16PartBView: React.FC<Form16PartBViewProps> = ({
             </tr>
             <tr className="border-b border-gray-800">
               <td className="p-1 border-r border-gray-800 align-top">
-                <div className="font-bold">{profile.schoolName || 'Govt. Senior Secondary School'}</div>
-                <div>DDO Code: <strong>{profile.ddoCode || '38402'}</strong></div>
+                <div className="font-bold">{profile.schoolName || '-'}</div>
+                <div>DDO Code: <strong>{profile.ddoCode || '-'}</strong></div>
                 <div>District / State: <strong>Rajasthan</strong></div>
               </td>
               <td className="p-1 align-top">
-                <div className="font-bold text-[11px]">{profile.empName}</div>
-                <div>Designation: <strong>{profile.designation}</strong></div>
-                <div>Employee ID: <strong>{profile.empId || 'RJDU201015007204'}</strong></div>
-                <div>Pay Level: <strong>{profile.payLevel || 'L-11'}</strong> | A/c: {profile.bankAccount}</div>
+                <div className="font-bold text-[11px]">{profile.empName || '-'}</div>
+                <div>Designation: <strong>{profile.designation || '-'}</strong></div>
+                <div>Employee ID: <strong>{profile.empId || '-'}</strong></div>
+                <div>Pay Level: <strong>{profile.payLevel || '-'}</strong> | A/c: {profile.bankAccount || '-'}</div>
               </td>
             </tr>
             <tr className="border-b border-gray-800 bg-gray-50 font-semibold text-center text-[9px]">
@@ -195,15 +202,15 @@ export const Form16PartBView: React.FC<Form16PartBViewProps> = ({
               <td className="p-0.5">TAN of the Deductor</td>
             </tr>
             <tr className="border-b border-gray-800 text-center font-mono">
-              <td className="p-0.5 border-r border-gray-800">RAJGOV0001</td>
-              <td className="p-0.5 font-bold">{profile.officeTan || 'JDHG20338D'}</td>
+              <td className="p-0.5 border-r border-gray-800">{profile.officeTan ? 'RAJGOV0001' : '-'}</td>
+              <td className="p-0.5 font-bold">{profile.officeTan || '-'}</td>
             </tr>
             <tr className="border-b border-gray-800 bg-gray-50 font-semibold text-center text-[9px]">
               <td className="p-0.5 border-r border-gray-800">PAN of the Employee</td>
               <td className="p-0.5">Assessment Year / Financial Year</td>
             </tr>
             <tr className="text-center">
-              <td className="p-0.5 border-r border-gray-800 font-bold font-mono text-[11px]">{profile.panNumber}</td>
+              <td className="p-0.5 border-r border-gray-800 font-bold font-mono text-[11px]">{profile.panNumber || '-'}</td>
               <td className="p-0.5 font-bold">
                 A.Y.: {profile.assessmentYear || '2026-27'} (F.Y.: {profile.financialYear || '2025-26'})
               </td>
